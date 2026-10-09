@@ -1,29 +1,36 @@
 [project]
 name = "imap-mcp"
 version = "0.1.0"
-description = "Read-only MCP server for searching and reading mail across multiple IMAP accounts"
+description = "Read-only MCP server for analysing mail across multiple IMAP accounts, with Yandex OAuth (mail:imap_ro)"
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "Lee Flannery" }
+    { name = "Lee Flannery" },
+    { name = "Максим Рябов" },
 ]
 requires-python = ">=3.12"
-keywords = ["mcp", "imap", "email", "model-context-protocol"]
+keywords = ["mcp", "imap", "email", "model-context-protocol", "yandex", "oauth"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Communications :: Email",
 ]
 dependencies = [
+    "cryptography>=50.0.0",
+    "defusedxml>=0.7.1",
     "imap-tools>=1.13.0",
+    "keyring>=25.7.0",
     "mcp[cli]>=1.28.1",
+    "pypdf>=6.20.0",
 ]
 
 [project.urls]
-Repository = "https://github.com/LeeFlannery/imap-mcp"
-Issues = "https://github.com/LeeFlannery/imap-mcp/issues"
+Repository = "https://github.com/MaxRyabov/EMailMcp"
+Issues = "https://github.com/MaxRyabov/EMailMcp/issues"
+Upstream = "https://github.com/LeeFlannery/imap-mcp"
 
 [project.scripts]
 imap-mcp = "imap_mcp:main"
