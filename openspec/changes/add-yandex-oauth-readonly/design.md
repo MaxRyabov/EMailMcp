@@ -65,7 +65,7 @@
 - URL device code, токена и отзыва;
 - scope, хост и порт;
 - `device_grant_type`, `device_code_param`, `verification_url_field`;
-- `pending_errors` и `fatal_errors` с текстами;
+- `pending_errors` (у Яндекса `authorization_pending`, `slow_down` с увеличением интервала на 5 с) и `fatal_errors` с текстами; код вне обоих списков считается фатальным с текстом «неизвестный ответ провайдера»;
 - `client_secret_required`;
 - `expiry_warning`.
 
@@ -139,7 +139,7 @@
 - **DOCX:** `zipfile` + `defusedxml`, счётчик фактически прочитанных байтов.
 - **Тип:** по сигнатуре; BOM проверяется до правила нулевых байтов `[R14]`, `[S19]`.
 - **Изоляция:** процесс на вызов через `spawn` `[R11]`. Исполнитель живёт в `imap_mcp/_extract_worker.py`, который импортирует только `pypdf`, `defusedxml` и стандартную библиотеку `[S24]`. Первым делом в дочернем процессе `sys.stdout` и `sys.stderr` переключаются на `devnull`, а дескрипторы 1 и 2 — через `os.dup2` на `devnull`.
-- **Лимит памяти 1 ГБ** `[S23]`: на Windows родитель создаёт Job Object (`CreateJobObjectW`, `JOB_OBJECT_LIMIT_PROCESS_MEMORY`) через `ctypes` и назначает его процессу сразу после `start()`; на POSIX дочерний процесс ставит `resource.setrlimit(RLIMIT_AS)`. Окно между `start()` и назначением Job Object закрывается тем, что исполнитель ждёт сигнал «начинай» через `Pipe`.
+- **Лимит памяти 1 ГБ** `[S23]`: на Windows родитель создаёт Job Object (`CreateJobObjectW`, `JOB_OBJECT_LIMIT_PROCESS_MEMORY`) через `ctypes` и назначает его процессу сразу после `start()`; на Linux дочерний процесс ставит `resource.setrlimit(RLIMIT_AS, 2 ГБ)`: это лимит виртуальной памяти, поэтому он с запасом над целевым 1 ГБ. На macOS ядро `RLIMIT_AS` не применяет, лимита памяти нет, это указано в README. Окно между `start()` и назначением Job Object закрывается тем, что исполнитель ждёт сигнал «начинай» через `Pipe`.
 - **Тайм-аут:** `join(30)` → `kill()`.
 - **Кэш:** два письма, TTL 5 минут, ключ `(account, folder, uidvalidity, uid)` `[R22]`.
 - **Большие письма:** `get_email` не скачивает письма больше 40 МБ `[S25]`.
