@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from imap_mcp import accounts, imap
+from imap_mcp.auth import CredentialUnavailable
 
 
 class FakeFolderManager:
@@ -68,8 +69,10 @@ def fake_msg(**overrides):
 
 def test_open_box_requires_password(config):
     alpha = accounts.get_account("alpha")
-    with pytest.raises(RuntimeError, match="ALPHA_PW"), imap.open_box(alpha):
+    with pytest.raises(CredentialUnavailable, match="ALPHA_PW") as e, imap.open_box(alpha):
         pass
+    assert e.value.status == "no-credential"
+    assert FakeMailBox.instances == []  # no connection without a credential
 
 
 def test_open_box_logs_in_and_out(config, monkeypatch):
