@@ -1,7 +1,8 @@
 """Read-only IMAP helpers built on imap-tools.
 
 Every fetch uses mark_seen=False, so imap-tools issues BODY.PEEK and reading a
-message never sets the \\Seen flag in the real mailbox.
+message never sets the \\Seen flag in the real mailbox. Folders are opened with
+EXAMINE, and ReadOnlyMailBox (guard.py) stops every other command at the socket.
 """
 
 from __future__ import annotations
@@ -13,20 +14,23 @@ from contextlib import contextmanager, suppress
 from imap_tools import AND, OR, MailBox
 
 from .accounts import Account
+from .guard import ReadOnlyMailBox
 
 
 @contextmanager
-def open_box(account: Account) -> Iterator[MailBox]:
-    """Yield a logged-in, read-only mailbox for the account. Raises on failure."""
+def open_box(account: Account, folder: str = "INBOX") -> Iterator[MailBox]:
+    """Yield a logged-in mailbox with `folder` opened read-only. Raises on failure."""
     pw = account.password()
     if not pw:
         raise RuntimeError(f"no password for {account.key} (env {account.password_env} unset)")
     # Google shows app passwords with spaces for readability; IMAP wants them bare.
     if account.host.endswith("gmail.com"):
         pw = pw.replace(" ", "")
-    box = MailBox(account.host, port=account.port)
-    box.login(account.email, pw, initial_folder="INBOX")
+    box = ReadOnlyMailBox(account.host, port=account.port)
     try:
+        # initial_folder=None: imap-tools would otherwise send SELECT right after login.
+        box.login(account.email, pw, initial_folder=None)
+        box.folder.set(folder, readonly=True)  # EXAMINE
         yield box
     finally:
         with suppress(Exception):

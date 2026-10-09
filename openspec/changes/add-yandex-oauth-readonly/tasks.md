@@ -10,15 +10,15 @@
 
 ## 2. Гарантия «только чтение» в клиенте (readonly-imap-access)
 
-- [ ] 2.1 `guard.py` — `ReadOnlyIMAP4_SSL`:
+- [x] 2.1 `guard.py` — `ReadOnlyIMAP4_SSL`:
   - allowlist команд и подкоманд `UID`;
   - запрет `\r`, `\n`, `\0` во всех аргументах;
   - callable-литерал допустим только для `AUTHENTICATE` `[S1]`;
   - токенизатор элементов `FETCH`;
   - fail-closed;
   - `ReadOnlyMailBox` с `timeout=30`.
-- [ ] 2.2 `open_box`: вход с `initial_folder=None`, затем `folder.set(folder, readonly=True)`.
-- [ ] 2.3 Тесты на фейковом сокете, все вызовы напрямую через клиент, в обход проверки аргументов `[S10]`:
+- [x] 2.2 `open_box`: вход с `initial_folder=None`, затем `folder.set(folder, readonly=True)`.
+- [x] 2.3 Тесты на фейковом сокете, все вызовы напрямую через клиент, в обход проверки аргументов `[S10]`:
   - уходит `EXAMINE`, `SELECT` не уходит;
   - отклоняются до записи в сокет: `SELECT`, `STORE`, `UID STORE`, `APPEND`, `COPY`, `MOVE`, `EXPUNGE`, `CLOSE`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`;
   - `UID FETCH ... BODY.PEEK[HEADER]` проходит, а `BODY[]` и `RFC822` отклоняются;
@@ -28,7 +28,7 @@
   - после отклонённого `append` литерал не уходит, соединение закрыто;
   - `box.flag()`, `box.delete()`, `box.move()`, `box.append()`, `box.folder.create()` дают `ReadOnlyViolation`;
   - `timeout` передаётся.
-- [ ] 2.4 Тест-канарейка: сигнатура `imaplib.IMAP4._command`; `select`, `uid`, `append`, `store`, `copy` вызывают `_command`; `MailBox._get_mailbox_client` существует.
+- [x] 2.4 Тест-канарейка: сигнатура `imaplib.IMAP4._command`; `select`, `uid`, `append`, `store`, `copy` вызывают `_command`; `MailBox._get_mailbox_client` существует.
 
 ## 3. Способы входа и OAuth Яндекса (account-auth)
 

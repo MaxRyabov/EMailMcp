@@ -6,8 +6,16 @@ import pytest
 from imap_mcp import accounts, imap
 
 
+class FakeFolderManager:
+    def __init__(self):
+        self.set_calls = []
+
+    def set(self, folder, readonly=False):
+        self.set_calls.append((folder, readonly))
+
+
 class FakeMailBox:
-    """Stands in for imap_tools.MailBox; records login/fetch args, no network."""
+    """Stands in for ReadOnlyMailBox; records login/fetch args, no network."""
 
     instances = []
     messages = []
@@ -18,6 +26,7 @@ class FakeMailBox:
         self.login_args = None
         self.fetch_kwargs = None
         self.logged_out = False
+        self.folder = FakeFolderManager()
         FakeMailBox.instances.append(self)
 
     def login(self, email, password, initial_folder="INBOX"):
@@ -37,7 +46,7 @@ class FakeMailBox:
 def fake_mailbox(monkeypatch):
     FakeMailBox.instances = []
     FakeMailBox.messages = []
-    monkeypatch.setattr(imap, "MailBox", FakeMailBox)
+    monkeypatch.setattr(imap, "ReadOnlyMailBox", FakeMailBox)
 
 
 def fake_msg(**overrides):
@@ -66,10 +75,17 @@ def test_open_box_requires_password(config):
 def test_open_box_logs_in_and_out(config, monkeypatch):
     monkeypatch.setenv("ALPHA_PW", "s3cret")
     with imap.open_box(accounts.get_account("alpha")) as box:
-        assert box.login_args == ("alpha@example.com", "s3cret", "INBOX")
+        assert box.login_args == ("alpha@example.com", "s3cret", None)
+        assert box.folder.set_calls == [("INBOX", True)]
         assert (box.host, box.port) == ("imap.example.com", 1993)
         assert not box.logged_out
     assert box.logged_out
+
+
+def test_open_box_examines_requested_folder(config, monkeypatch):
+    monkeypatch.setenv("ALPHA_PW", "pw")
+    with imap.open_box(accounts.get_account("alpha"), "Archive") as box:
+        assert box.folder.set_calls == [("Archive", True)]
 
 
 def test_open_box_strips_spaces_for_gmail_only(config, monkeypatch):
