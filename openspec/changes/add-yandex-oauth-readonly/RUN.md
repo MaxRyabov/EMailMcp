@@ -5,7 +5,8 @@
 ## Статус (на 2026-10-09)
 
 - Спека готова и слита в `main`: PR #1, merge-коммит `fb1a03d`, https://github.com/MaxRyabov/EMailMcp/pull/1.
-- Идёт этап 1: ветка `stage/1-env-baseline`, PR #2 https://github.com/MaxRyabov/EMailMcp/pull/2. В `tasks.md` 5 из 48 задач выполнено.
+- Этап 1 закрыт: PR #2 слит 2026-10-09, merge `565449a`. В `tasks.md` выполнено 5 задач из 48.
+- Следующий шаг: этап 2 (охранник IMAP), ветка `stage/2-readonly-guard` от `main`. Этот файл с правкой после слияния PR #2 лежит незакоммиченным в `main`; закоммитить его в ветке этапа 2.
 - Спека не заархивирована и архивируется только после этапа 6.
 
 ## План этапов
@@ -14,7 +15,7 @@
 
 | Этап | Суть | Статус |
 |---|---|---|
-| 1 | uv, зависимости, CI-матрица, базовая линия 31 тест | PR #2 ждёт слияния; цикл ревью остановлен после круга 1 (остались только отклонённые) |
+| 1 | uv, зависимости, CI-матрица, базовая линия 31 тест | ✅ слит, PR #2 (`565449a`) |
 | 2 | Охранник IMAP (`guard.py`): EXAMINE, allowlist, CR/LF, FETCH, fail-closed | не начат |
 | 3 | `accounts`, `auth/*` (device flow Яндекса, keyring), `@safe_tool`, CLI | не начат |
 | 4 | Инструменты: id, пул соединений, папки, поиск, HTML→текст, `get_email` | не начат |
@@ -26,7 +27,7 @@
 - **Локально:** `D:\Projects\YandexMailMcp`. Remotes: `origin` → github.com/MaxRyabov/EMailMcp (публичный), `upstream` → github.com/LeeFlannery/imap-mcp. `main` отслеживает `origin/main`.
 - **Изначальное состояние:** `origin` был пустым, его `main` создан из upstream `51929b3`.
 - **Автор коммитов:** `git config --local user.email maxriabov@gmail.com`. Глобальная почта рабочая, в публичный репозиторий её не пускаем.
-- **Python и uv:** `uv` 0.12.24 поставлен через winget (2026-10-09). В PATH он появится только в новой оболочке; в старой — `export PATH="/c/Users/m.riabov/AppData/Local/Microsoft/WinGet/Packages/astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe:$PATH"`. Проект на Python 3.12 (`.python-version`), uv сам скачал 3.12.15; системный — 3.14.
+- **Python и uv:** `uv` 0.12.24 поставлен через winget (2026-10-09). В PATH пользователя он есть, но процесс, запущенный до установки (в том числе расширение VS Code), его не видит, пока VS Code не перезапущен; в старой — `export PATH="/c/Users/m.riabov/AppData/Local/Microsoft/WinGet/Packages/astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe:$PATH"`. Проект на Python 3.12 (`.python-version`), uv сам скачал 3.12.15; системный — 3.14.
 - **Прогон на других версиях Python** не трогая `.venv`: `UV_PROJECT_ENVIRONMENT=<scratch>/venv-3.14 uv run --locked --python 3.14 pytest`. Простой `uv run --python 3.14` пересоздаёт `.venv` проекта.
 - **Базовая линия upstream (1.2):** 31 passed, ruff check и format без ошибок; после 1.3 то же на 3.12.15, 3.13.16 и 3.14.2.
 - **Сеть:** прямой выход на `imap.yandex.com:993` и `oauth.yandex.ru:443`, прокси нет (со слов пользователя).
@@ -89,7 +90,7 @@
 
 ## Что за пользователем
 
-- Слить PR #2 (этап 1).
+- Слить PR этапа 2, когда он будет готов.
 - Зарегистрировать приложение на oauth.yandex.ru только с правом «Доступ на чтение писем в почтовом ящике». Включить «IMAP с OAuth-токенами»; для Яндекс 360 — уточнить у администратора (6.2).
 - Живые проверки: `imap-mcp auth yandex --trace` (6.2), `imap-mcp verify-readonly yandex --trace` (6.3), сессия Claude Code в шаблонной папке (6.5).
 - Слияние PR каждого этапа.
