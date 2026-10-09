@@ -160,9 +160,9 @@
 
 ### D15. Форма ответов и `@safe_tool`
 - Списки возвращают `{rows, errors, limit_capped, truncated}` с аннотацией TypedDict или pydantic-модели, чтобы схема выхода совпадала `[S2]`.
-- `@safe_tool` ловит `Exception`, редактирует текст и возвращает `CallToolResult(isError=True, content=[TextContent(...)])`.
+- `@safe_tool` ловит `Exception`, редактирует текст и бросает `ToolError(текст) from None`. mcp оборачивает его в `CallToolResult(isError=True)` с текстом `Error executing tool <имя>: <текст>`.
 
-Что такой возврат обходит проверку схемы выхода, в mcp 2.0.0 проверено по ветке main. Первая задача этапа 3 сверяет это с тегом `v2.0.0` тестом на реальном `MCPServer`. Если не так — `@safe_tool` возвращает объект по схеме с полем `errors`.
+Почему не возврат `CallToolResult(isError=True)`: задача 3.1 проверила на mcp 2.0.0 тестом на реальном `MCPServer`, что такой возврат из инструмента со схемой выхода проходит `output_model.model_validate(structured_content)` и превращается в ошибку валидации pydantic. Запасной вариант «объект по схеме с полем `errors`» отвергнут: он теряет `isError: true`.
 
 ### D16. `verify-readonly`
 - `probe.py` с `UnguardedProbeClient` импортируется лениво внутри обработчика команды. Тест проверяет, что в режиме сервера модуля нет в `sys.modules` `[S20]`.
@@ -239,5 +239,5 @@
 - форма `AUTHENTICATE` по `--trace` (6.2);
 - фактический `expires_in` (6.2);
 - принимает ли Яндекс `SEARCH CHARSET UTF-8` с литералом (6.5);
-- проходит ли `CallToolResult(isError=True)` мимо проверки схемы в mcp `v2.0.0` (3.1);
+- ~~проходит ли `CallToolResult(isError=True)` мимо проверки схемы в mcp `v2.0.0` (3.1)~~ — закрыт: не проходит, см. D15;
 - работают ли `dontAsk` и `disableClaudeAiConnectors` в расширении VS Code (6.5).
