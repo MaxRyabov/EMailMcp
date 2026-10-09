@@ -2,11 +2,11 @@
 
 ## 1. Окружение и базовая линия
 
-- [ ] 1.1 Установить `uv` (с подтверждением пользователя). Проверка: `uv --version`.
-- [ ] 1.2 На нетронутом upstream выполнить `uv sync --locked`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`. Проверка: 31 тест зелёный, ruff без ошибок. Это базовая линия.
-- [ ] 1.3 `uv add keyring pypdf cryptography defusedxml`, затем `uv lock`. Проверка: `uv sync --locked` проходит, тесты зелёные.
-- [ ] 1.4 Обновить `pyproject.toml` (`authors`, `urls`, описание), добавить строку о форке в `LICENSE`.
-- [ ] 1.5 CI: матрица `ubuntu-latest`, `windows-latest` × Python 3.12, 3.13, 3.14 (D20). Проверка: `uv run --python 3.14 pytest` локально зелёный.
+- [x] 1.1 Установить `uv` (с подтверждением пользователя). Проверка: `uv --version`.
+- [x] 1.2 На нетронутом upstream выполнить `uv sync --locked`, `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`. Проверка: 31 тест зелёный, ruff без ошибок. Это базовая линия.
+- [x] 1.3 `uv add keyring pypdf cryptography defusedxml`, затем `uv lock`. Проверка: `uv sync --locked` проходит, тесты зелёные.
+- [x] 1.4 Обновить `pyproject.toml` (`authors`, `urls`, описание), добавить строку о форке в `LICENSE`.
+- [x] 1.5 CI: матрица `ubuntu-latest`, `windows-latest` × Python 3.12, 3.13, 3.14 (D20). Проверка: `uv run --python 3.14 pytest` локально зелёный.
 
 ## 2. Гарантия «только чтение» в клиенте (readonly-imap-access)
 
