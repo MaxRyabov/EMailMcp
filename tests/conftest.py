@@ -80,6 +80,8 @@ def config(tmp_path, monkeypatch):
     path = tmp_path / "accounts.toml"
     path.write_text(CONFIG)
     monkeypatch.setenv("IMAP_MCP_ACCOUNTS", str(path))
+    for env in ("ALPHA_PW", "BETA_PW", "OFF_PW"):  # a developer may have them exported
+        monkeypatch.delenv(env, raising=False)
     accounts.clear_cache()
     yield path
     accounts.clear_cache()

@@ -35,7 +35,7 @@ _PATTERNS = (
     (
         re.compile(
             r"(?i)([\"']?\b(?:access_token|refresh_token|client_secret|device_code|password)\b"
-            r"[\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\"'&\s,}]+)"
+            r"[\"']?\s*[:=]\s*)(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|[^\"'&\s,}]+)"
         ),
         _mask_field,
     ),

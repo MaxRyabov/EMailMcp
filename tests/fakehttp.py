@@ -24,19 +24,26 @@ class _Response:
 
 def reply(status, body):
     """An answer: dict bodies are sent as JSON, bytes as they are."""
-    return status, json.dumps(body).encode() if isinstance(body, dict) else body
+    if isinstance(body, dict):
+        return status, json.dumps(body).encode()
+    if isinstance(body, bytes):
+        return status, body
+    raise TypeError(f"reply body must be dict or bytes, got {type(body).__name__}")
 
 
 class FakeOpener:
+    """Answers are consumed in order; the last one repeats, so a poll can be fed one
+    `authorization_pending` for as long as it runs. Every request is recorded."""
+
     def __init__(self, script=None):
         # url -> list of answers; each answer is (status, bytes) or an exception to raise.
         self.script = {url: list(answers) for url, answers in (script or {}).items()}
-        self.requests = []  # (url, form fields, timeout)
+        self.requests = []  # (method, url, form fields, timeout)
 
     def open(self, request, timeout=None):
         body = request.data.decode("ascii") if request.data else ""
         fields = dict(urllib.parse.parse_qsl(body))
-        self.requests.append((request.full_url, fields, timeout))
+        self.requests.append((request.get_method(), request.full_url, fields, timeout))
         answers = self.script.get(request.full_url)
         if not answers:
             raise AssertionError(f"unexpected request to {request.full_url}")
@@ -49,4 +56,4 @@ class FakeOpener:
         return _Response(status, body)
 
     def fields(self, url):
-        return [f for u, f, _ in self.requests if u == url]
+        return [f for m, u, f, _ in self.requests if u == url and m == "POST"]

@@ -198,6 +198,8 @@ def load() -> Registry:
             "accounts.toml and fill in your accounts (or point "
             "IMAP_MCP_ACCOUNTS at a config file)"
         ) from None
+    except OSError as e:  # no access, a file where a directory should be, ...
+        raise ConfigError(f"cannot read account config {path}: {type(e).__name__}") from None
     with _cache_lock:
         if _cache is not None and _cache[0] == path and _cache[1] == mtime:
             return _cache[2]

@@ -45,6 +45,17 @@ def test_missing_records_and_delete():
     assert store.load_tokens("yandex") is None
 
 
+def test_failed_delete_of_existing_record_is_an_error(memory_keyring, monkeypatch):
+    store.save_tokens("yandex", TOKENS)
+
+    def refuse(service, username):
+        raise keyring.errors.PasswordDeleteError(username)
+
+    monkeypatch.setattr(memory_keyring, "delete_password", refuse)
+    with pytest.raises(store.StoreError, match="не удалось удалить"):
+        store.delete_tokens("yandex")
+
+
 def test_corrupt_record_is_reported(memory_keyring):
     memory_keyring.data[("imap-mcp", "yandex")] = "{not json"
     with pytest.raises(store.CorruptRecord, match="yandex"):
@@ -100,7 +111,13 @@ def opener(monkeypatch):
 def test_post_form_returns_json_with_timeout(opener):
     opener.script[URL] = [reply(200, {"access_token": "t"})]
     assert http.post_form(URL, {"a": "1"}) == {"access_token": "t"}
-    assert opener.requests == [(URL, {"a": "1"}, 15)]
+    assert opener.requests == [("POST", URL, {"a": "1"}, 15)]
+
+
+def test_plain_http_is_refused_before_sending(opener):
+    with pytest.raises(ValueError, match="https"):
+        http.post_form("http://oauth.yandex.ru/token", {"client_secret": "s"})
+    assert opener.requests == []
 
 
 def test_4xx_with_error_is_provider_error(opener):

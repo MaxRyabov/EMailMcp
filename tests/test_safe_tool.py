@@ -115,6 +115,11 @@ def test_quoted_value_with_space_is_masked_whole():
     )
 
 
+def test_escaped_quote_inside_value_does_not_end_the_mask():
+    text = '{"password": "my\\"tail-of-secret", "user": "me"}'
+    assert redact(text) == f'{{"password": "{MASK}", "user": "me"}}'
+
+
 def test_redact_decodes_bytes_before_matching():
     register("pa'ss\\word")
     assert redact(b"LOGIN me pa'ss\\word") == f"LOGIN me {MASK}"
@@ -169,11 +174,11 @@ def test_per_account_error_rows_are_redacted(config, monkeypatch):
     assert [r["error"] for r in rows] == [f"RuntimeError: rejected {MASK}"] * 2
 
 
-def test_missing_config_is_a_tool_error_with_path(tmp_path, monkeypatch):
+def test_missing_config_is_a_tool_error_with_path(tmp_path, monkeypatch, request):
+    request.addfinalizer(accounts.clear_cache)
     missing = tmp_path / "nowhere" / "accounts.toml"
     monkeypatch.setenv("IMAP_MCP_ACCOUNTS", str(missing))
     accounts.clear_cache()
     result = call(server.mcp, "list_accounts")
     assert result.is_error
     assert str(missing) in text_of(result)
-    accounts.clear_cache()

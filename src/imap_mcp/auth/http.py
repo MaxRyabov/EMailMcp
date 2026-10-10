@@ -57,7 +57,10 @@ def _json(body: bytes) -> dict | None:
 
 def post_form(url: str, fields: dict[str, str], trace: Callable[[str], None] | None = None) -> dict:
     """POST url-encoded `fields` and return the JSON object of a 2xx answer."""
-    host = urllib.parse.urlsplit(url).hostname or url
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https":  # the body carries client_secret, codes and tokens
+        raise ValueError(f"OAuth request needs https, got {parts.scheme!r}")
+    host = parts.hostname or url
     body = urllib.parse.urlencode(fields).encode("ascii")
     request = urllib.request.Request(
         url,

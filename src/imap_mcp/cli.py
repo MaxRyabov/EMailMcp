@@ -46,7 +46,7 @@ def _oauth_account(key: str) -> acct.Account | None:
         _err(str(e))
         return None
     except KeyError as e:
-        _err(e.args[0])
+        _err(str(e.args[0]) if e.args else f"unknown account {key!r}")
         return None
     if account.auth != "oauth":
         _err(

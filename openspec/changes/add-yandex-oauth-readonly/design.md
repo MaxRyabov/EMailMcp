@@ -162,7 +162,7 @@
 - Списки возвращают `{rows, errors, limit_capped, truncated}` с аннотацией TypedDict или pydantic-модели, чтобы схема выхода совпадала `[S2]`.
 - `@safe_tool` ловит `Exception`, редактирует текст и бросает `ToolError(текст) from None`. mcp оборачивает его в `CallToolResult(isError=True)` с текстом `Error executing tool <имя>: <текст>`.
 
-Почему не возврат `CallToolResult(isError=True)`: задача 3.1 проверила на mcp 2.0.0 тестом на реальном `MCPServer`, что такой возврат из инструмента со схемой выхода проходит `output_model.model_validate(structured_content)` и превращается в ошибку валидации pydantic. Запасной вариант «объект по схеме с полем `errors`» отвергнут: он теряет `isError: true`.
+Почему не возврат `CallToolResult(isError=True)`: задача 3.1 проверила на mcp 2.0.0 тестом на реальном `MCPServer`, что mcp передаёт такой возврат из инструмента со схемой выхода в `output_model.model_validate(structured_content)`, проверка падает (`structured_content` равен `None`), и клиент получает текст ошибки валидации pydantic вместо нашего. Запасной вариант «объект по схеме с полем `errors`» отвергнут: он теряет `isError: true`.
 
 ### D16. `verify-readonly`
 - `probe.py` с `UnguardedProbeClient` импортируется лениво внутри обработчика команды. Тест проверяет, что в режиме сервера модуля нет в `sys.modules` `[S20]`.

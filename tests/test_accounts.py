@@ -1,5 +1,6 @@
 import os
 import textwrap
+from types import SimpleNamespace
 
 import pytest
 
@@ -49,6 +50,15 @@ def test_missing_config_error_mentions_example(monkeypatch, tmp_path):
     with pytest.raises(accounts.ConfigError, match="accounts.example.toml") as e:
         accounts.all_accounts()
     assert "nope.toml" in str(e.value)
+
+
+def test_config_path_through_a_file_is_a_config_error(tmp_path, monkeypatch):
+    blocker = tmp_path / "file"
+    blocker.write_text("")
+    monkeypatch.setenv("IMAP_MCP_ACCOUNTS", str(blocker / "accounts.toml"))
+    accounts.clear_cache()
+    with pytest.raises(accounts.ConfigError, match="accounts.toml"):
+        accounts.load()
 
 
 def test_invalid_toml_is_a_config_error_with_path(write_config):
@@ -219,5 +229,6 @@ def test_config_is_reread_when_mtime_changes(write_config):
 def test_unchanged_config_is_cached(write_config, monkeypatch):
     write_config(UPSTREAM)
     first = accounts.load()
-    monkeypatch.setattr(accounts.tomllib, "load", lambda fh: pytest.fail("re-read"))
+    fake = SimpleNamespace(load=lambda fh: pytest.fail("re-read"), TOMLDecodeError=ValueError)
+    monkeypatch.setattr(accounts, "tomllib", fake)
     assert accounts.load() is first

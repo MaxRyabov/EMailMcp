@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 
 
-@dataclass(frozen=True)
+# eq=False: profiles compare by identity and hash by id; mapping fields are unhashable.
+@dataclass(frozen=True, eq=False)
 class ProviderProfile:
     name: str
     device_code_url: str

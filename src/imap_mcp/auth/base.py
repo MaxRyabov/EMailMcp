@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import secrets as _random
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from imap_tools import BaseMailBox
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class OfflineStatus:
     """What can be said about a credential without touching the network."""
 
-    status: str  # ok | no-credential | reauth-required
+    status: Literal["ok", "no-credential", "reauth-required"]
     hint: str | None = None
     warning: str | None = None
     expires_at: dt.datetime | None = None

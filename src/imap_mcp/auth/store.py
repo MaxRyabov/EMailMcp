@@ -81,12 +81,17 @@ def _set(user: str, value: str) -> None:
 
 
 def _delete(user: str) -> bool:
+    """True if the record existed and is gone, False if there was none."""
     if _get(user) is None:
         return False
     try:
         _call(backend().delete_password, SERVICE, user)
     except keyring.errors.PasswordDeleteError:
-        return False
+        if _get(user) is None:  # removed in between
+            return True
+        raise StoreError(
+            f"не удалось удалить запись {user} из keyring (backend {backend_name()})"
+        ) from None
     return True
 
 
