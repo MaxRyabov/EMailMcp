@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -48,24 +49,27 @@ YANDEX = ProviderProfile(
     device_grant_type="device_code",
     device_code_param="code",
     verification_url_field="verification_url",
-    pending_errors={"authorization_pending": 0, "slow_down": 5},  # RFC 8628 §3.5
-    fatal_errors={
-        "invalid_client": (
-            "неверный client_id или client_secret: client_id задаётся в accounts.toml, "
-            "client_secret хранится в системном хранилище (удалить — `imap-mcp forget`)"
-        ),
-        "unauthorized_client": "приложение на модерации или заблокировано в Яндекс OAuth",
-        "invalid_scope": (
-            "права приложения изменились: на oauth.yandex.ru у приложения должно быть "
-            "выбрано только «Доступ на чтение писем в почтовом ящике»"
-        ),
-        "invalid_grant": _CODE_EXPIRED,
-        "bad_verification_code": _CODE_EXPIRED,
-        "expired_token": _CODE_EXPIRED,
-        "invalid_request": "провайдер отклонил запрос как некорректный",
-        "unsupported_grant_type": "провайдер не поддерживает вход по коду устройства",
-        "access_denied": "доступ не предоставлен, токен не получен",
-    },
+    # Read-only mappings: the profile is shared by every account.
+    pending_errors=MappingProxyType({"authorization_pending": 0, "slow_down": 5}),
+    fatal_errors=MappingProxyType(
+        {
+            "invalid_client": (
+                "неверный client_id или client_secret: client_id задаётся в accounts.toml, "
+                "client_secret хранится в системном хранилище (удалить — `imap-mcp forget`)"
+            ),
+            "unauthorized_client": "приложение на модерации или заблокировано в Яндекс OAuth",
+            "invalid_scope": (
+                "права приложения изменились: на oauth.yandex.ru у приложения должно быть "
+                "выбрано только «Доступ на чтение писем в почтовом ящике»"
+            ),
+            "invalid_grant": _CODE_EXPIRED,
+            "bad_verification_code": _CODE_EXPIRED,
+            "expired_token": _CODE_EXPIRED,
+            "invalid_request": "провайдер отклонил запрос как некорректный",
+            "unsupported_grant_type": "провайдер не поддерживает вход по коду устройства",
+            "access_denied": "доступ не предоставлен, токен не получен",
+        }
+    ),
     client_secret_required=False,
     expiry_warning=dt.timedelta(days=30),
     access_management_url="https://id.yandex.ru/personal/data-access",

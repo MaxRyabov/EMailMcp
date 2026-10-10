@@ -16,7 +16,16 @@ from ..redact import redact
 
 TIMEOUT = 15
 
-opener = urllib.request.build_opener()
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow redirects: a 307/308 would resend client_secret or a token to
+    another host, a 301-303 would turn the POST into a GET (RFC 9700)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+opener = urllib.request.build_opener(_NoRedirect)
 
 
 class NetworkError(Exception):

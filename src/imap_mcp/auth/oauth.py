@@ -326,9 +326,10 @@ def authorize(
     trial_login(account, profile, tokens.access_token, trace)
 
     try:
-        store.save_tokens(account.key, tokens)
+        # The secret first: if the token then fails to save, "not saved" stays true.
         if new_secret:
             store.save_client_secret(account.key, new_secret)
+        store.save_tokens(account.key, tokens)
     except store.StoreError as e:
         raise AuthFailed(f"{e}; токен не сохранён") from None
     out("авторизация выполнена")

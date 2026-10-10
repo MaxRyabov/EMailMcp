@@ -33,7 +33,8 @@ class FakeOpener:
         self.requests = []  # (url, form fields, timeout)
 
     def open(self, request, timeout=None):
-        fields = dict(urllib.parse.parse_qsl(request.data.decode("ascii")))
+        body = request.data.decode("ascii") if request.data else ""
+        fields = dict(urllib.parse.parse_qsl(body))
         self.requests.append((request.full_url, fields, timeout))
         answers = self.script.get(request.full_url)
         if not answers:

@@ -4,7 +4,8 @@ from types import SimpleNamespace
 import pytest
 
 from imap_mcp import accounts, imap
-from imap_mcp.auth import CredentialUnavailable
+from imap_mcp.auth import CredentialUnavailable, base
+from imap_mcp.redact import redact
 
 
 class FakeFolderManager:
@@ -99,6 +100,19 @@ def test_open_box_strips_spaces_for_gmail_only(config, monkeypatch):
     monkeypatch.setenv("ALPHA_PW", "pass with spaces")
     with imap.open_box(accounts.get_account("alpha")) as box:
         assert box.login_args[1] == "pass with spaces"
+
+
+def test_gmail_host_match_is_exact():
+    assert base._is_gmail("imap.gmail.com")
+    assert base._is_gmail("GMAIL.COM.")
+    assert not base._is_gmail("imap.mygmail.com")
+
+
+def test_both_password_forms_are_secrets(config, monkeypatch):
+    monkeypatch.setenv("BETA_PW", "abcd efgh ijkl mnop")
+    cred = base.PasswordCredential(accounts.get_account("gmailish"))
+    assert cred.secrets() == ["abcd efgh ijkl mnop", "abcdefghijklmnop"]
+    assert "abcdefghijklmnop" not in redact("LOGIN beta@gmail.com abcdefghijklmnop")
 
 
 def test_snippet_collapses_newlines_and_truncates():

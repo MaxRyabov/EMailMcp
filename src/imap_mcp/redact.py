@@ -57,11 +57,14 @@ def _mask_xoauth2_base64(m: re.Match) -> str:
 def redact(text: object, extra: Iterable[str | None] = ()) -> str:
     """Text with every known secret and secret-shaped value replaced by ***."""
     out = str(text)
+    # Patterns first: a registered secret equal to an anchor ("password", "Bearer")
+    # must not erase the anchor before the unregistered value after it is masked.
+    for pattern, repl in _PATTERNS:
+        out = pattern.sub(repl, out)
+    out = _BASE64_RUN.sub(_mask_xoauth2_base64, out)
     with _lock:
         known = _secrets | {v for v in extra if v and len(v) >= _MIN_SECRET_LEN}
     # Longest first, so a secret that contains another is masked whole.
     for secret in sorted(known, key=len, reverse=True):
         out = out.replace(secret, MASK)
-    for pattern, repl in _PATTERNS:
-        out = pattern.sub(repl, out)
-    return _BASE64_RUN.sub(_mask_xoauth2_base64, out)
+    return out

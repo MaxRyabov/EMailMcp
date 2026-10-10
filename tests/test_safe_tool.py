@@ -103,6 +103,11 @@ def test_redact_patterns_without_registration():
         assert b64 not in redact(text)
 
 
+def test_registered_secret_equal_to_anchor_does_not_unmask_value():
+    register("password")
+    assert redact("password=unregistered-value-123") == f"{MASK}={MASK}"
+
+
 def test_redact_leaves_ordinary_text_and_base64():
     plain = base64.b64encode(b"just some attachment bytes, nothing secret").decode()
     text = f"user_code 1234567, verification_url https://oauth.yandex.ru/device, {plain}"

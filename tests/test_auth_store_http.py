@@ -129,6 +129,17 @@ def test_network_errors_name_host_and_kind(opener, answer, kind):
     assert "oauth.yandex.ru" in str(e.value)
 
 
+def test_real_opener_does_not_follow_redirects():
+    assert any(isinstance(h, http._NoRedirect) for h in http.opener.handlers)
+    assert http._NoRedirect().redirect_request(None, None, 307, "", {}, "https://evil") is None
+
+
+def test_redirect_answer_is_network_error(opener):
+    opener.script[URL] = [reply(307, b"")]
+    with pytest.raises(http.NetworkError, match="HTTP 307"):
+        http.post_form(URL, {"client_secret": "s"})
+
+
 def test_trace_is_redacted(opener):
     opener.script[URL] = [reply(200, {"access_token": "y0_secret-access-token"})]
     lines = []

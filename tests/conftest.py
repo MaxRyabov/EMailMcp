@@ -32,6 +32,8 @@ class MemoryKeyring(KeyringBackend):
 
 @pytest.fixture(autouse=True)
 def forget_registered_secrets():
+    with redact._lock:
+        redact._secrets.clear()
     yield
     with redact._lock:
         redact._secrets.clear()

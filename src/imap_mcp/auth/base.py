@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import hmac
+import secrets as _random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -48,8 +50,19 @@ class CredentialProvider(Protocol):
     def secrets(self) -> list[str]: ...
 
 
+# Fingerprints only need to be stable within one process; a random key keeps a
+# leaked fingerprint from being brute-forced back into a weak password.
+_FINGERPRINT_KEY = _random.token_bytes(32)
+
+
 def fingerprint(account: Account, secret: str | float | None) -> str:
-    return hashlib.sha256(f"{account!r}\0{secret}".encode()).hexdigest()
+    data = f"{account!r}\0{secret}".encode()
+    return hmac.new(_FINGERPRINT_KEY, data, hashlib.sha256).hexdigest()
+
+
+def _is_gmail(host: str) -> bool:
+    host = host.lower().rstrip(".")
+    return host == "gmail.com" or host.endswith(".gmail.com")
 
 
 class PasswordCredential:
@@ -59,11 +72,10 @@ class PasswordCredential:
         self.account = account
 
     def _password(self) -> str | None:
-        pw = self.account.password()
-        register(pw)
+        raw = self.account.password()
         # Google shows app passwords with spaces for readability; IMAP wants them bare.
-        if pw and self.account.host.endswith("gmail.com"):
-            pw = pw.replace(" ", "")
+        pw = raw.replace(" ", "") if raw and _is_gmail(self.account.host) else raw
+        register(raw, pw)
         return pw
 
     def offline_status(self) -> OfflineStatus:
@@ -87,5 +99,5 @@ class PasswordCredential:
         return fingerprint(self.account, self._password())
 
     def secrets(self) -> list[str]:
-        pw = self.account.password()
-        return [pw] if pw else []
+        raw, pw = self.account.password(), self._password()
+        return [v for v in dict.fromkeys((raw, pw)) if v]

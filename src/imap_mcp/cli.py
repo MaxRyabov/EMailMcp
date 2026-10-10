@@ -121,4 +121,6 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         if args.command == "auth":
             _err("прервано, ничего не сохранено")
+        elif args.command == "forget":
+            _err("прервано; что осталось в хранилище, покажет `imap-mcp status --offline`")
         return EXIT_INTERRUPTED

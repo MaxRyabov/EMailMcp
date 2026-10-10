@@ -175,6 +175,13 @@ def test_invalid_key_shows_format(write_config, key):
     assert status == f"config-error: invalid key, expected {accounts.KEY_PATTERN.pattern}"
 
 
+def test_key_with_trailing_newline_is_rejected(write_config):
+    # `$` in a regex also matches before a final "\n"; the key goes into message ids.
+    write_config(UPSTREAM.replace('"work"', '"work\\n"'))
+    assert accounts.load().accounts == {}
+    assert broken(accounts.load())["work\n"].startswith("config-error: invalid key")
+
+
 def test_one_typo_does_not_break_the_other_account(write_config):
     write_config(
         UPSTREAM

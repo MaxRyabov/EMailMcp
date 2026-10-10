@@ -91,7 +91,7 @@ def _parse(raw: object) -> Account:
     key = raw.get("key")
     if not isinstance(key, str) or not key:
         raise AccountConfigError("missing key")
-    if not KEY_PATTERN.match(key):
+    if not KEY_PATTERN.fullmatch(key):
         raise AccountConfigError(f"invalid key, expected {KEY_PATTERN.pattern}")
     if "scope" in raw:
         raise AccountConfigError(
