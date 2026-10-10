@@ -2,6 +2,7 @@ import datetime as dt
 
 import pytest
 
+from imap_mcp import accounts as acct
 from imap_mcp import imap, server
 
 
@@ -37,16 +38,46 @@ def test_list_accounts_statuses(config, monkeypatch):
     monkeypatch.setenv("BETA_PW", "pw")
     monkeypatch.setattr(imap, "open_box", open_box)
 
-    status = {e["account"]: e["status"] for e in server.list_accounts()}
+    report = server.list_accounts()
+    status = {e["account"]: e["status"] for e in report["accounts"]}
     assert status == {
         "alpha": "ok",
-        "gmailish": "unreachable: ConnectionRefusedError",
+        "gmailish": "unreachable: ConnectionRefusedError (imap.gmail.com:993)",
         "off": "disabled",
     }
+    assert {e["auth"] for e in report["accounts"]} == {"password"}
+    assert report["warnings"] == []
 
     monkeypatch.delenv("ALPHA_PW")
-    status = {e["account"]: e["status"] for e in server.list_accounts()}
+    status = {e["account"]: e["status"] for e in server.list_accounts()["accounts"]}
     assert status["alpha"] == "no-credential"
+
+
+def test_list_accounts_reports_config_errors_and_no_enabled_accounts(
+    tmp_path, monkeypatch, request
+):
+    request.addfinalizer(acct.clear_cache)
+    path = tmp_path / "accounts.toml"
+    path.write_text('[[account]]\nkey = "bad"\nemail = "x@example.com"\n', encoding="utf-8")
+    monkeypatch.setenv("IMAP_MCP_ACCOUNTS", str(path))
+    acct.clear_cache()
+    report = server.list_accounts()
+    assert [(e["account"], e["status"]) for e in report["accounts"]] == [
+        ("bad", "config-error: missing password_env")
+    ]
+    assert report["warnings"] == [f"нет включённых аккаунтов, конфиг: {path}"]
+
+
+def test_list_emails_reports_broken_account_next_to_good_one(config, monkeypatch):
+    with config.open("a", encoding="utf-8") as fh:
+        fh.write('\n[[account]]\nkey = "typo"\nemail = "t@example.com"\npassword_env = "T"\n')
+    acct.clear_cache()
+    monkeypatch.setattr(
+        imap, "fetch_rows", lambda a, **kw: [{"account": a.key, "id": "1", "date": "2026-07-01"}]
+    )
+    rows = server.list_emails()
+    assert {"account": "typo", "error": "config-error: missing host"} in rows
+    assert {r["account"] for r in rows if "id" in r} == {"alpha", "gmailish"}
 
 
 def test_list_emails_merges_and_sorts(config, monkeypatch):
