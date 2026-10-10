@@ -108,6 +108,18 @@ def test_registered_secret_equal_to_anchor_does_not_unmask_value():
     assert redact("password=unregistered-value-123") == f"{MASK}={MASK}"
 
 
+def test_quoted_value_with_space_is_masked_whole():
+    register("abc def ghi")
+    assert redact('{"password": "abc def ghi", "user": "me"}') == (
+        f'{{"password": "{MASK}", "user": "me"}}'
+    )
+
+
+def test_redact_decodes_bytes_before_matching():
+    register("pa'ss\\word")
+    assert redact(b"LOGIN me pa'ss\\word") == f"LOGIN me {MASK}"
+
+
 def test_redact_leaves_ordinary_text_and_base64():
     plain = base64.b64encode(b"just some attachment bytes, nothing secret").decode()
     text = f"user_code 1234567, verification_url https://oauth.yandex.ru/device, {plain}"

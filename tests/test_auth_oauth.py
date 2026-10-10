@@ -10,6 +10,8 @@ import base64
 import dataclasses
 import datetime as dt
 import re
+import time
+from types import SimpleNamespace
 
 import keyring
 import pytest
@@ -53,6 +55,14 @@ auth = "oauth"
 oauth_provider = "yandex"
 client_id = "client-id-1"
 """
+
+
+@pytest.fixture(autouse=True)
+def frozen_time(monkeypatch):
+    """Stored token lifetimes are relative to NOW; the real clock must not decide."""
+    monkeypatch.setattr(
+        oauth, "time", SimpleNamespace(time=lambda: NOW, sleep=time.sleep, monotonic=time.monotonic)
+    )
 
 
 @pytest.fixture

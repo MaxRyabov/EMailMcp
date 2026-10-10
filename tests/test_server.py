@@ -53,7 +53,10 @@ def test_list_accounts_statuses(config, monkeypatch):
     assert status["alpha"] == "no-credential"
 
 
-def test_list_accounts_reports_config_errors_and_no_enabled_accounts(tmp_path, monkeypatch):
+def test_list_accounts_reports_config_errors_and_no_enabled_accounts(
+    tmp_path, monkeypatch, request
+):
+    request.addfinalizer(acct.clear_cache)
     path = tmp_path / "accounts.toml"
     path.write_text('[[account]]\nkey = "bad"\nemail = "x@example.com"\n', encoding="utf-8")
     monkeypatch.setenv("IMAP_MCP_ACCOUNTS", str(path))
@@ -63,7 +66,6 @@ def test_list_accounts_reports_config_errors_and_no_enabled_accounts(tmp_path, m
         ("bad", "config-error: missing password_env")
     ]
     assert report["warnings"] == [f"нет включённых аккаунтов, конфиг: {path}"]
-    acct.clear_cache()
 
 
 def test_list_emails_reports_broken_account_next_to_good_one(config, monkeypatch):

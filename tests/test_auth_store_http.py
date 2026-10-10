@@ -1,5 +1,6 @@
 """auth/store.py on an in-memory keyring and auth/http.py on a scripted opener."""
 
+import http.client as http_client
 import json
 import urllib.error
 
@@ -119,6 +120,7 @@ def test_4xx_with_error_is_provider_error(opener):
         (TimeoutError("timed out"), "TimeoutError"),
         (urllib.error.URLError(ConnectionRefusedError()), "ConnectionRefusedError"),
         (urllib.error.URLError("getaddrinfo failed"), "getaddrinfo failed"),
+        (http_client.IncompleteRead(b"{", 10), "IncompleteRead"),
     ],
 )
 def test_network_errors_name_host_and_kind(opener, answer, kind):

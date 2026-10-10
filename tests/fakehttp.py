@@ -12,7 +12,8 @@ class _Response:
         self._body = body
 
     def read(self):
-        return self._body
+        body, self._body = self._body, b""  # a real response body is read once
+        return body
 
     def __enter__(self):
         return self

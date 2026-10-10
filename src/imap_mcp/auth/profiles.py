@@ -36,6 +36,7 @@ class ProviderProfile:
     valid_token_rejection_reasons: tuple[str, ...] = field(default=())
 
 
+_YANDEX_ACCESS_URL = "https://id.yandex.ru/personal/data-access"
 _CODE_EXPIRED = "код неверен или просрочен, запустите `imap-mcp auth` заново"
 
 YANDEX = ProviderProfile(
@@ -72,13 +73,13 @@ YANDEX = ProviderProfile(
     ),
     client_secret_required=False,
     expiry_warning=dt.timedelta(days=30),
-    access_management_url="https://id.yandex.ru/personal/data-access",
+    access_management_url=_YANDEX_ACCESS_URL,
     new_token_rejection_reasons=(
         "в настройках почты выключен «IMAP с OAuth-токенами» (Все настройки → Почтовые программы)",
         "для ящика Яндекс 360 администратор организации запретил IMAP или сторонние приложения",
     ),
     valid_token_rejection_reasons=(
-        "доступ приложения отозван в Яндекс ID (https://id.yandex.ru/personal/data-access)",
+        f"доступ приложения отозван в Яндекс ID ({_YANDEX_ACCESS_URL})",
         "выключен «IMAP с OAuth-токенами» (Все настройки → Почтовые программы) "
         "или его запретил администратор Яндекс 360",
     ),

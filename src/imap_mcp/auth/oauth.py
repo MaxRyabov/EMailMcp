@@ -22,7 +22,7 @@ from imap_tools import BaseMailBox
 from imap_tools.errors import MailboxLoginError
 
 from ..guard import ReadOnlyMailBox
-from ..redact import register
+from ..redact import redact, register
 from . import http, store
 from .base import CredentialUnavailable, OfflineStatus, fingerprint
 from .profiles import PROVIDERS, ProviderProfile
@@ -285,7 +285,8 @@ def trial_login(account: Account, profile: ProviderProfile, token: str, trace: T
     except Exception as e:
         if not _rejected(e):
             raise AuthFailed(
-                f"вход в IMAP {account.host}:{account.port} не выполнен: {type(e).__name__}"
+                f"вход в IMAP {account.host}:{account.port} не выполнен: "
+                f"{type(e).__name__}: {redact(e)}"
             ) from None
         reasons = "\n".join(f"  - {r}" for r in profile.new_token_rejection_reasons)
         raise AuthFailed(

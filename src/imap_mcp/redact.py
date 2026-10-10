@@ -20,18 +20,24 @@ _MIN_SECRET_LEN = 6
 _lock = threading.Lock()
 _secrets: set[str] = set()
 
+
+def _mask_field(m: re.Match) -> str:
+    value = m.group(2)
+    quote = value[0] if value[0] in "\"'" else ""
+    return f"{m.group(1)}{quote}{MASK}{quote}"
+
+
 _PATTERNS = (
-    # XOAUTH2 initial response, in either the raw or the AUTHENTICATE form.
-    (re.compile(r"(?i)(auth=Bearer\s+)[^\s\x01\"'\\]+"), r"\1" + MASK),
+    # Bearer token: an Authorization header or the XOAUTH2 string (`auth=Bearer ...`).
     (re.compile(r"(?i)(\bBearer\s+)[^\s\x01\"'\\]+"), r"\1" + MASK),
     (re.compile(r"(?i)(AUTHENTICATE\s+XOAUTH2\s+)\S+"), r"\1" + MASK),
-    # JSON and form fields that carry secrets.
+    # JSON and form fields that carry secrets; a quoted value is masked whole.
     (
         re.compile(
             r"(?i)([\"']?\b(?:access_token|refresh_token|client_secret|device_code|password)\b"
-            r"[\"']?\s*[:=]\s*[\"']?)[^\"'&\s,}]+"
+            r"[\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\"'&\s,}]+)"
         ),
-        r"\1" + MASK,
+        _mask_field,
     ),
 )
 _BASE64_RUN = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
@@ -56,7 +62,7 @@ def _mask_xoauth2_base64(m: re.Match) -> str:
 
 def redact(text: object, extra: Iterable[str | None] = ()) -> str:
     """Text with every known secret and secret-shaped value replaced by ***."""
-    out = str(text)
+    out = text.decode("utf-8", "replace") if isinstance(text, bytes | bytearray) else str(text)
     # Patterns first: a registered secret equal to an anchor ("password", "Bearer")
     # must not erase the anchor before the unregistered value after it is masked.
     for pattern, repl in _PATTERNS:

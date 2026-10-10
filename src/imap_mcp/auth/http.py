@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from http.client import HTTPException
 
 from ..redact import redact
 
@@ -73,13 +74,14 @@ def post_form(url: str, fields: dict[str, str], trace: Callable[[str], None] | N
     except urllib.error.HTTPError as e:
         try:
             status, payload = e.code, e.read()
-        except (TimeoutError, OSError) as read_error:
+        except (TimeoutError, OSError, HTTPException) as read_error:
             raise NetworkError(host, type(read_error).__name__) from None
     except urllib.error.URLError as e:
         reason = e.reason
         kind = type(reason).__name__ if isinstance(reason, BaseException) else str(reason)
         raise NetworkError(host, kind) from None
-    except (TimeoutError, OSError) as e:
+    # HTTPException: e.g. IncompleteRead when the connection drops mid-body.
+    except (TimeoutError, OSError, HTTPException) as e:
         raise NetworkError(host, type(e).__name__) from None
     if trace:
         trace(redact(f"HTTP < {status} {payload.decode('utf-8', 'replace')}"))
