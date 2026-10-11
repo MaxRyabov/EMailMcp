@@ -4,6 +4,8 @@
 # that must hold the password when the server runs (export it, use direnv, or
 # inject it with a secrets manager like `op run`).
 #
+# auth = "password" (the default) or "oauth"; see the Yandex example below.
+#
 # enabled = false accounts are listed but never logged into.
 
 [[account]]
@@ -25,4 +27,20 @@ email = "you@gmail.com"
 host = "imap.gmail.com"
 port = 993
 password_env = "GMAIL_APP_PASSWORD"
+enabled = false
+
+# Yandex Mail (personal or Yandex 360) over OAuth with the read-only scope
+# mail:imap_ro: the provider itself refuses any change to the mailbox.
+# 1. Register an app at https://oauth.yandex.ru with the single right
+#    "Read access to mail in the mailbox" and paste its ClientID below.
+# 2. In Mail settings enable "IMAP with OAuth tokens" (All settings -> Email clients).
+# 3. Run `imap-mcp auth yandex` once. Tokens go to the system keyring, never here.
+# host and port default to imap.yandex.com:993.
+[[account]]
+key = "yandex"
+label = "you@yandex.ru (Yandex)"
+email = "you@yandex.ru"
+auth = "oauth"
+oauth_provider = "yandex"
+client_id = "your-client-id"
 enabled = false

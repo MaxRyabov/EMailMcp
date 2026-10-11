@@ -32,8 +32,8 @@
 
 ## 3. Способы входа и OAuth Яндекса (account-auth)
 
-- [ ] 3.1 Проверить на теге mcp `v2.0.0`, проходит ли `CallToolResult(isError=True)` из инструмента с аннотацией объекта мимо проверки схемы выхода `[S2]`. Тест на реальном `MCPServer` без сети. Результат и выбранный способ — в `RUN.md`.
-- [ ] 3.2 `accounts.py`:
+- [x] 3.1 Проверить на теге mcp `v2.0.0`, проходит ли `CallToolResult(isError=True)` из инструмента с аннотацией объекта мимо проверки схемы выхода `[S2]`. Тест на реальном `MCPServer` без сети. Результат и выбранный способ — в `RUN.md`.
+- [x] 3.2 `accounts.py`:
   - поля `auth`, `oauth_provider`, `client_id`, формат `key`;
   - дефолты из профиля;
   - валидация по аккаунту со статусом `config-error`;
@@ -41,18 +41,18 @@
   - отсутствующий файл не роняет процесс.
 
   Тесты на каждый сценарий спеки.
-- [ ] 3.3 `accounts.example.toml`: пример Яндекс-аккаунта с `auth = "oauth"`; поправить `test_example_config_is_loadable` `[R16]`.
-- [ ] 3.4 `auth/base.py`: `CredentialProvider` (`offline_status`, `login`, `fingerprint`, `secrets`); `PasswordCredential` с логикой upstream. Тесты входа по паролю зелёные.
-- [ ] 3.5 `auth/store.py`:
+- [x] 3.3 `accounts.example.toml`: пример Яндекс-аккаунта с `auth = "oauth"`; поправить `test_example_config_is_loadable` `[R16]`.
+- [x] 3.4 `auth/base.py`: `CredentialProvider` (`offline_status`, `login`, `fingerprint`, `secrets`); `PasswordCredential` с логикой upstream. Тесты входа по паролю зелёные.
+- [x] 3.5 `auth/store.py`:
   - keyring: сервис `imap-mcp`, JSON на аккаунт, `client_secret` отдельно;
   - `persist = "local_machine"` для `WinVaultKeyring`;
   - лимит 1280 символов;
   - ошибка недоступного бэкенда.
 
   Тесты на in-memory backend и тест, что `persist` выставляется только для Windows-бэкенда.
-- [ ] 3.6 `auth/profiles.py`: `ProviderProfile` (D1) и профиль `yandex`; фикстуры — дословно из документации Яндекса.
-- [ ] 3.7 `auth/http.py` на `urllib.request`: `timeout=15`, классификация ошибок (`HTTPError` раньше `URLError`), подменяемый opener `[S4]`, `[S12]`. Тесты: 400 с `invalid_grant`, 503, `TimeoutError`, ответ без JSON.
-- [ ] 3.8 `auth/oauth.py`:
+- [x] 3.6 `auth/profiles.py`: `ProviderProfile` (D1) и профиль `yandex`; фикстуры — дословно из документации Яндекса.
+- [x] 3.7 `auth/http.py` на `urllib.request`: `timeout=15`, классификация ошибок (`HTTPError` раньше `URLError`), подменяемый opener `[S4]`, `[S12]`. Тесты: 400 с `invalid_grant`, 503, `TimeoutError`, ответ без JSON.
+- [x] 3.8 `auth/oauth.py`:
   - device flow с `code`, `grant_type=device_code`, `device_id`, `device_name`;
   - опрос по `interval`;
   - фатальные коды с текстами, `access_denied`, `expired_token`, `slow_down`, неизвестный код как фатальный;
@@ -63,17 +63,17 @@
   - отказ входа при действующем токене → `reauth-required` с двумя причинами.
 
   Тесты на каждый сценарий спеки.
-- [ ] 3.9 Запасной путь однострочного `AUTHENTICATE XOAUTH2 <b64>` с `state = "AUTH"`. Тест: после него `EXAMINE` проходит `[S11]`.
-- [ ] 3.10 `redact()` и `@safe_tool` (D15). Тесты:
+- [x] 3.9 Запасной путь однострочного `AUTHENTICATE XOAUTH2 <b64>` с `state = "AUTH"`. Тест: после него `EXAMINE` проходит `[S11]`.
+- [x] 3.10 `redact()` и `@safe_tool` (D15). Тесты:
   - XOAUTH2-base64 и access-токен в исключении заменены на `***`;
   - перебор всех зарегистрированных инструментов: исключение с секретом даёт `isError: true` и отредактированный текст.
-- [ ] 3.11 `cli.py`: без аргументов — `serve`; `auth [--trace]`, `status [--offline]`, `forget`. Тесты:
+- [x] 3.11 `cli.py`: без аргументов — `serve`; `auth [--trace]`, `status [--offline]`, `forget`. Тесты:
   - без аргументов вызывается `mcp.run`;
   - `auth` для парольного аккаунта не делает сетевых запросов;
   - `status --offline` не открывает сокетов;
   - `--trace` не печатает секретов;
   - `forget` с `client_secret` вызывает отзыв, без него печатает инструкцию; повтор — «нечего удалять».
-- [ ] 3.12 `list_accounts` возвращает `{accounts, warnings}`: поле `auth`, реальный вход для `ok`, дата истечения, предупреждение, «нет включённых аккаунтов». Тест обновлён.
+- [x] 3.12 `list_accounts` возвращает `{accounts, warnings}`: поле `auth`, реальный вход для `ok`, дата истечения, предупреждение, «нет включённых аккаунтов». Тест обновлён.
 
 ## 4. Инструменты для анализа почты (mail-tools)
 

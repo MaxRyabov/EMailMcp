@@ -14,22 +14,25 @@ from contextlib import contextmanager, suppress
 from imap_tools import AND, OR, MailBox
 
 from .accounts import Account
+from .auth import CredentialUnavailable, credential_for
 from .guard import ReadOnlyMailBox
 
 
 @contextmanager
 def open_box(account: Account, folder: str = "INBOX") -> Iterator[MailBox]:
-    """Yield a logged-in mailbox with `folder` opened read-only. Raises on failure."""
-    pw = account.password()
-    if not pw:
-        raise RuntimeError(f"no password for {account.key} (env {account.password_env} unset)")
-    # Google shows app passwords with spaces for readability; IMAP wants them bare.
-    if account.host.endswith("gmail.com"):
-        pw = pw.replace(" ", "")
+    """Yield a logged-in mailbox with `folder` opened read-only. Raises on failure.
+
+    The credential is read on every call, so a new password or a token from a fresh
+    `imap-mcp auth` applies without a restart. An expired or missing credential
+    raises CredentialUnavailable before any connection is made.
+    """
+    credential = credential_for(account)
+    status = credential.offline_status()
+    if status.status != "ok":
+        raise CredentialUnavailable(status.status, f"{account.key}: {status.hint}")
     box = ReadOnlyMailBox(account.host, port=account.port)
     try:
-        # initial_folder=None: imap-tools would otherwise send SELECT right after login.
-        box.login(account.email, pw, initial_folder=None)
+        credential.login(box)  # no folder selected yet
         box.folder.set(folder, readonly=True)  # EXAMINE
         yield box
     finally:

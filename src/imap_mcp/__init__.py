@@ -1,5 +1,5 @@
 """Read-only multi-account IMAP MCP server."""
 
-from .server import main
+from .cli import main
 
 __all__ = ["main"]

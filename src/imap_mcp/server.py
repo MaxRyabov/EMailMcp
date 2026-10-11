@@ -4,13 +4,45 @@ mailboxes and exposes list/get/search tools to an MCP client."""
 from __future__ import annotations
 
 import datetime as dt
+import functools
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from . import accounts as acct
-from . import imap
+from . import imap, status
+from .redact import redact
 
 mcp = MCPServer("imap-mcp", version="0.1.0")
+
+
+def safe_tool(fn):
+    """Turn any exception into a tool error with secrets redacted (D15).
+
+    mcp 2.0.0 validates a returned CallToolResult against the tool's output schema,
+    so the error is raised as ToolError: the client gets `isError: true` with this
+    text. `from None` keeps the original exception, and its secrets, out of the chain.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            raise ToolError(redact(f"{type(e).__name__}: {e}")) from None
+
+    return wrapper
+
+
+def _error_row(key: str, e: Exception) -> dict:
+    return {"account": key, "error": redact(f"{type(e).__name__}: {e}")}
+
+
+def _broken_rows(account: str | None) -> list[dict]:
+    """Errors of broken config entries when merging all accounts."""
+    if account:
+        return []
+    return [{"account": b.key, "error": b.status} for b in acct.load().broken if b.enabled]
 
 
 def _parse_since(since: str | None) -> dt.date | None:
@@ -27,30 +59,19 @@ def _targets(account: str | None) -> list[acct.Account]:
 
 
 @mcp.tool()
-def list_accounts() -> list[dict]:
+@safe_tool
+def list_accounts() -> status.AccountsReport:
     """List configured mail accounts and whether each is reachable right now.
 
-    Performs a live IMAP login per enabled account. Returns status so the caller
-    knows which mailboxes are queryable.
+    Performs a live IMAP login per enabled account, so `ok` means a login has just
+    succeeded. OAuth accounts also report the token expiry date. `warnings` lists
+    tokens that expire soon and the absence of enabled accounts.
     """
-    out = []
-    for a in acct.all_accounts():
-        entry = {"account": a.key, "label": a.label, "email": a.email, "enabled": a.enabled}
-        if not a.enabled:
-            entry["status"] = "disabled"
-        elif not a.password():
-            entry["status"] = "no-credential"
-        else:
-            try:
-                with imap.open_box(a):
-                    entry["status"] = "ok"
-            except Exception as e:  # noqa: BLE001 -- report, don't crash
-                entry["status"] = f"unreachable: {type(e).__name__}"
-        out.append(entry)
-    return out
+    return status.report(live=True)
 
 
 @mcp.tool()
+@safe_tool
 def list_emails(
     account: str | None = None,
     since: str | None = None,
@@ -65,17 +86,18 @@ def list_emails(
     limit: max rows (per account when merging).
     """
     since_d = _parse_since(since)
-    rows: list[dict] = []
+    rows: list[dict] = _broken_rows(account)
     for a in _targets(account):
         try:
             rows.extend(imap.fetch_rows(a, since=since_d, unread_only=unread_only, limit=limit))
         except Exception as e:  # noqa: BLE001 -- per-account fail-safe
-            rows.append({"account": a.key, "error": f"{type(e).__name__}: {e}"})
+            rows.append(_error_row(a.key, e))
     rows.sort(key=lambda r: r.get("date") or "", reverse=True)
     return rows
 
 
 @mcp.tool()
+@safe_tool
 def search_emails(
     query: str,
     account: str | None = None,
@@ -90,17 +112,18 @@ def search_emails(
     limit: max rows (per account when merging).
     """
     since_d = _parse_since(since)
-    rows: list[dict] = []
+    rows: list[dict] = _broken_rows(account)
     for a in _targets(account):
         try:
             rows.extend(imap.fetch_rows(a, query=query, since=since_d, limit=limit))
         except Exception as e:  # noqa: BLE001
-            rows.append({"account": a.key, "error": f"{type(e).__name__}: {e}"})
+            rows.append(_error_row(a.key, e))
     rows.sort(key=lambda r: r.get("date") or "", reverse=True)
     return rows
 
 
 @mcp.tool()
+@safe_tool
 def get_email(account: str, id: str) -> dict:
     """Fetch one full email (plain-text body preferred) by account + message id.
 
@@ -112,7 +135,3 @@ def get_email(account: str, id: str) -> dict:
     if msg is None:
         return {"account": account, "id": id, "error": "not found in INBOX"}
     return msg
-
-
-def main() -> None:
-    mcp.run()

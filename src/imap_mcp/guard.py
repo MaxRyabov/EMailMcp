@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import imaplib
 import re
+from collections.abc import Callable
 from contextlib import suppress
 
 from imap_tools import MailBox
+
+from .redact import redact
 
 # Commands allowed regardless of the selected folder.
 _SESSION_COMMANDS = frozenset(
@@ -67,6 +70,24 @@ class ReadOnlyIMAP4_SSL(imaplib.IMAP4_SSL):  # noqa: N801 -- mirrors imaplib.IMA
 
     # Class default: _command runs from IMAP4.__init__ before instance attrs exist.
     broken = False
+
+    def __init__(self, *args, tracer: Callable[[str], None] | None = None, **kwargs):
+        # Set before super().__init__, which already reads the greeting.
+        self.tracer = tracer
+        super().__init__(*args, **kwargs)
+
+    # --trace: the IMAP exchange as it is on the wire, secrets redacted.
+    def send(self, data):
+        if self.tracer:
+            text = bytes(data).decode("utf-8", "replace").rstrip("\r\n")
+            self.tracer(redact(f"IMAP > {text}"))
+        return super().send(data)
+
+    def _get_line(self):
+        line = super()._get_line()
+        if self.tracer:
+            self.tracer(redact(f"IMAP < {line.decode('utf-8', 'replace')}"))
+        return line
 
     def _command(self, name, *args):
         try:
@@ -165,10 +186,22 @@ def _fetch_items(command: str, items: str) -> list[re.Match]:
 class ReadOnlyMailBox(MailBox):
     """imap-tools MailBox on top of ReadOnlyIMAP4_SSL, with a connection timeout."""
 
-    def __init__(self, host: str = "", port: int = 993, timeout: float = 30, ssl_context=None):
+    def __init__(
+        self,
+        host: str = "",
+        port: int = 993,
+        timeout: float = 30,
+        ssl_context=None,
+        tracer: Callable[[str], None] | None = None,
+    ):
+        self._tracer = tracer
         super().__init__(host, port=port, timeout=timeout, ssl_context=ssl_context)
 
     def _get_mailbox_client(self) -> imaplib.IMAP4:
         return ReadOnlyIMAP4_SSL(
-            self._host, self._port, ssl_context=self._ssl_context, timeout=self._timeout
+            self._host,
+            self._port,
+            ssl_context=self._ssl_context,
+            timeout=self._timeout,
+            tracer=self._tracer,
         )

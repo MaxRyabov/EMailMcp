@@ -1,8 +1,9 @@
 """Canary for the internals guard.py relies on.
 
-ReadOnlyIMAP4_SSL hooks imaplib.IMAP4._command and ReadOnlyMailBox hooks
-MailBox._get_mailbox_client. If a Python or imap-tools release changes either,
-or imaplib starts writing commands around _command, these tests fail first.
+ReadOnlyIMAP4_SSL hooks imaplib.IMAP4._command (and send/_get_line for --trace),
+ReadOnlyMailBox hooks MailBox._get_mailbox_client. If a Python or imap-tools
+release changes them, or imaplib starts writing commands around _command, these
+tests fail first.
 """
 
 import imaplib
@@ -65,3 +66,9 @@ def test_commands_go_through_command(call, expected):
     with pytest.raises(_Sent):
         call(client)
     assert client.commands[0][0] == expected
+
+
+def test_trace_hooks_signature():
+    """--trace hooks IMAP4.send and IMAP4._get_line (guard.ReadOnlyIMAP4_SSL)."""
+    assert list(inspect.signature(imaplib.IMAP4.send).parameters) == ["self", "data"]
+    assert list(inspect.signature(imaplib.IMAP4._get_line).parameters) == ["self"]
