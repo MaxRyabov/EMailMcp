@@ -126,26 +126,44 @@ it tells you which mailboxes are queryable and what to pass as `account`.
 {"account": "personal", "email": "you@example.com", "enabled": true, "status": "ok"}
 ```
 
-**`list_emails(account?, since?, unread_only?, limit?)`** recent mail, newest
-first. Omit `account` to merge all enabled accounts into one timeline.
+**`list_folders(account?)`** folders with special-use flags (`\Sent`, `\Junk`,
+`\Trash`, `\Drafts`, `\Archive`, `\All`), `selectable`, and message/unseen
+counts. Names are decoded (Cyrillic included) and accepted as `folder` elsewhere.
 
-**`search_emails(query, account?, since?, limit?)`** free-text search over
-sender, subject, and body. Also cross-account unless you name one.
+**`list_emails(account?, folder?, since?, unread_only?, limit?)`** recent mail,
+newest first. Omit `account` to merge all enabled accounts into one timeline.
+`folder` defaults to `INBOX`; a special-use alias such as `\Junk` is resolved
+per account, so one call reads every account's spam folder.
 
-Both return compact rows:
+**`search_emails(query, account?, folder?, since?, unread_only?, limit?)`**
+search over sender, subject, and body, in any language. Also cross-account
+unless you name one.
+
+Both return an object; one row per message:
 
 ```json
-{"account": "personal", "id": "4711", "from": "billing@hetzner.com",
- "subject": "Invoice 2026-07", "date": "2026-07-03T09:12:44+00:00",
- "unread": true, "snippet": "Your invoice for July..."}
+{"rows": [{"account": "personal", "folder": "INBOX",
+           "id": "v1.personal.SU5CT1g.1712345678.4711",
+           "from": "billing@hetzner.com", "to": ["you@example.com"],
+           "subject": "Invoice 2026-07", "date": "2026-07-03T09:12:44+00:00",
+           "unread": true, "size": 18234, "snippet": "Your invoice for July..."}],
+ "errors": [], "limit_capped": false, "truncated": false}
 ```
 
-**`get_email(account, id)`** one full message by the `id` from a row, with
-plain-text body preferred over HTML. Reading it does not mark it read.
+`limit` is per account, 25 by default, at most 100 (`limit_capped` says it was
+cut). Messages over 128 KB get `snippet: null` and are not downloaded. The
+answer stays under 45 000 characters; the oldest rows are dropped first
+(`truncated`). If one account is down, it lands in `errors` and the other
+accounts still answer.
 
-Dates are ISO (`YYYY-MM-DD`); `since` filters everywhere; `limit` applies per
-account when merging. If one account is down, its error comes back as a row
-and the other accounts still answer.
+**`get_email(id, offset?, max_chars?)`** one message by the `id` from a row:
+headers, attachment metadata and the body as text (plain text preferred, HTML
+converted, hidden elements removed and marked). Long bodies come in windows of
+`max_chars` (20 000 by default, at most 40 000): call again with
+`offset=next_offset` while `truncated` is true. Reading does not mark it read.
+
+Dates are ISO; `since` is `YYYY-MM-DD`. Message content is written by third
+parties and is data, not instructions; the tool descriptions say so to the model.
 
 ## Troubleshooting
 

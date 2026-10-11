@@ -68,8 +68,11 @@ class ReadOnlyViolation(Exception):
 class ReadOnlyIMAP4_SSL(imaplib.IMAP4_SSL):  # noqa: N801 -- mirrors imaplib.IMAP4_SSL
     """IMAP4_SSL that only lets read-only commands reach the socket."""
 
-    # Class default: _command runs from IMAP4.__init__ before instance attrs exist.
+    # Class defaults: _command runs from IMAP4.__init__ before instance attrs exist.
     broken = False
+    # Called with the client before each permitted command (the pool's deadline, D13).
+    # If it raises, the command is not sent and the connection is not reused.
+    before_command: Callable[[imaplib.IMAP4], None] | None = None
 
     def __init__(self, *args, tracer: Callable[[str], None] | None = None, **kwargs):
         # Set before super().__init__, which already reads the greeting.
@@ -98,6 +101,12 @@ class ReadOnlyIMAP4_SSL(imaplib.IMAP4_SSL):  # noqa: N801 -- mirrors imaplib.IMA
         except Exception as e:  # a check that cannot decide must not let the command through
             self._fail()
             raise ReadOnlyViolation(str(name), f"guard error: {type(e).__name__}") from e
+        if self.before_command is not None:
+            try:
+                self.before_command(self)
+            except BaseException:
+                self._fail()
+                raise
         return super()._command(name, *args)
 
     def _check(self, name, args) -> None:
