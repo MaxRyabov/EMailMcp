@@ -52,7 +52,7 @@ def test_every_hiding_style():
         '<span style="max-height:0;overflow:hidden">a7</span>',
     ]
     text = html_to_text("".join(hidden) + f"<p>{FILLER}</p>")
-    for i in range(1, 8):
+    for i in range(1, len(hidden) + 1):
         assert f"a{i}" not in text
     assert text.count(HIDDEN_MARK) == 1  # adjacent markers merge
 
@@ -76,11 +76,11 @@ def test_unclosed_hidden_paragraph_hides_only_itself():
 def test_unclosed_list_items_and_cells():
     html = (
         '<ul><li style="display:none">невидимо<li>пункт два</ul>'
-        '<table><tr><td style="display:none">ячейка<td>видимая ячейка</table>'
+        '<table><tr><td style="display:none">невидимка<td>видимая ячейка</table>'
         f"<p>{FILLER}</p>"
     )
     text = html_to_text(html)
-    assert "невидимо" not in text and "ячейка\t" not in text and "пункт два" in text
+    assert "невидимо" not in text and "невидимка" not in text and "пункт два" in text
     assert "видимая ячейка" in text
 
 
@@ -95,6 +95,19 @@ def test_fuse_keeps_text_when_most_of_it_is_hidden():
     assert "почти весь текст письма тут" in text and "мало" in text
     assert text.endswith(BROKEN_MARK)
     assert HIDDEN_MARK not in text
+
+
+def test_css_comment_does_not_unhide():
+    for style in ("/**/display:none", "x:1;/* c */display:none", "display:/**/none"):
+        text = html_to_text(f'<p style="{style}">секрет</p><p>{FILLER}</p>')
+        assert "секрет" not in text, style
+
+
+def test_first_of_repeated_attributes_wins():
+    html = f'<p style="display:none" style="display:inline">секрет</p><p>{FILLER}</p>'
+    assert "секрет" not in html_to_text(html)
+    html = f'<p style="display:inline" style="display:none">видно</p><p>{FILLER}</p>'
+    assert "видно" in html_to_text(html)
 
 
 def test_links():

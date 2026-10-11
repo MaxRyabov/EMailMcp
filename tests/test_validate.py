@@ -38,7 +38,7 @@ def test_limit_of_wrong_type_is_our_error_not_a_schema_error(mail):
     assert result.is_error
     assert "limit: ожидается целое число не меньше 1" in text
     assert "validation error" not in text
-    assert mail["alpha"].sockets == []
+    assert mail["alpha"].sockets == [] and mail["gmailish"].sockets == []
 
 
 def test_integer_parameters_keep_integer_schema():
@@ -88,9 +88,15 @@ def test_query_accepts_cyrillic_and_max_length():
     assert validate.query("x" * 500) == "x" * 500
 
 
+@pytest.mark.parametrize("alias", validate.SPECIAL_USE)
+def test_special_use_aliases_are_canonical(alias):
+    assert validate.folder(alias) == alias
+    assert validate.folder(alias.lower()) == alias
+    assert validate.folder(alias.upper()) == alias
+
+
 def test_folder_rules():
     assert validate.folder("Счета") == "Счета"
-    assert validate.folder("\\junk") == "\\Junk"
     for bad in ("", "x" * 501, "a\rb", "\\Spam"):
         with pytest.raises(ArgumentError, match="^folder: "):
             validate.folder(bad)

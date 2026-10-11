@@ -110,14 +110,17 @@ _STYLE_HIDES = re.compile(
 )
 _MAX_HEIGHT_0 = re.compile(r"(?:^|;)max-height:0(?:\.0*)?(?:px|pt|em|rem|%)?(?:!important)?(?:;|$)")
 _OVERFLOW_HIDDEN = re.compile(r"(?:^|;)overflow:hidden(?:!important)?(?:;|$)")
-_SPACES = re.compile(r"[ \t\r\f\v ]+")
+_SPACES = re.compile(r"[ \t\r\f\v\u00a0]+")
+_CSS_COMMENT = re.compile(r"/\*.*?(?:\*/|$)", re.DOTALL)
 _REPEATED_MARK = re.compile(rf"{re.escape(HIDDEN_MARK)}(?:\s*{re.escape(HIDDEN_MARK)})+")
 
 
 def _hides(attrs: dict[str, str | None]) -> bool:
     if "hidden" in attrs:
         return True
-    style = re.sub(r"\s+", "", (attrs.get("style") or "").lower())
+    # CSS comments are whitespace to a mail client: /**/display:none still hides.
+    style = _CSS_COMMENT.sub("", (attrs.get("style") or "").lower())
+    style = re.sub(r"\s+", "", style)
     if not style:
         return False
     if _STYLE_HIDES.search(style):
@@ -210,7 +213,8 @@ class _Converter(HTMLParser):
             self._close_outermost(*rule)
 
     def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
+        # A repeated attribute keeps its first value, as in browsers and mail clients.
+        attrs = dict(reversed(attrs))
         self._implicit_close(tag)
         if tag == "br":
             self._emit("\n", hidden=self._in("hidden"))
