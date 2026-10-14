@@ -72,12 +72,18 @@ def test_integer_bounds_are_named(param, value, lo, hi):
 def test_since():
     assert validate.since(None) is None
     assert validate.since("2026-07-01") == dt.date(2026, 7, 1)
-    for bad in ("2026-13-01", "July 1st", "2026-7-1", 20260701, "2026-07-01T00:00"):
+    bad_dates = ("2026-13-01", "July 1st", "2026-7-1", 20260701, "2026-07-01T00:00", "2025-W15-3")
+    for bad in bad_dates:
         with pytest.raises(ArgumentError, match="^since: ожидается дата YYYY-MM-DD"):
             validate.since(bad)
 
 
-@pytest.mark.parametrize("bad", ["", "   ", "x" * 501, "a\tb", "a\nb", "a\x00b", "a b", 5])
+def test_blank_query_is_named_as_blank():
+    with pytest.raises(ArgumentError, match="^query: ожидается непустая строка"):
+        validate.query("   ")
+
+
+@pytest.mark.parametrize("bad", ["", "   ", "x" * 501, "a\tb", "a\nb", "a\x00b", "a\u2028b", 5])
 def test_query_rules(bad):
     with pytest.raises(ArgumentError, match="^query: "):
         validate.query(bad)

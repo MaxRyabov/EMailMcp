@@ -11,12 +11,15 @@ this module's message instead of a pydantic validation error.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import unicodedata
 from typing import Annotated, Any
 
 from pydantic import WithJsonSchema
 
 from .accounts import KEY_PATTERN
+
+_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 
 IntArg = Annotated[Any, WithJsonSchema({"type": "integer"})]
 
@@ -66,7 +69,9 @@ def _control(text: str) -> bool:
 def text(param: str, value: object, max_len: int) -> str:
     if not isinstance(value, str):
         raise ArgumentError(param, f"ожидается строка, получено {_shown(value)}")
-    if not value.strip() or len(value) > max_len:
+    if not value.strip():
+        raise ArgumentError(param, "ожидается непустая строка, а не одни пробелы")
+    if len(value) > max_len:
         raise ArgumentError(param, f"ожидается строка длиной от 1 до {max_len} символов")
     if _control(value):
         raise ArgumentError(param, "недопустимые управляющие символы (CR, LF, TAB и т. п.)")
@@ -93,7 +98,8 @@ def folder(value: object) -> str:
 def since(value: object) -> dt.date | None:
     if value is None or value == "":
         return None
-    if isinstance(value, str) and len(value) == 10:
+    # fromisoformat alone also takes ISO weeks (2025-W15-3) and other forms.
+    if isinstance(value, str) and _DATE.fullmatch(value):
         try:
             return dt.date.fromisoformat(value)
         except ValueError:

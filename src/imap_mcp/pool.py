@@ -36,6 +36,10 @@ class MailError(Exception):
     """An expected failure with a ready-made message (missing folder, stale id, ...)."""
 
 
+class AccountBusy(TimeoutError):
+    """Another call held the account for the whole deadline."""
+
+
 class Deadline:
     """Checked before every IMAP command; also caps the socket timeout to what is left."""
 
@@ -130,7 +134,7 @@ class ConnectionPool:
         deadline = Deadline(self._deadline, self._clock)
         slot = self._slot(account.key)
         if not slot.lock.acquire(timeout=max(deadline.remaining(), 0)):
-            raise TimeoutError("account is busy")
+            raise AccountBusy("account is busy")
         try:
             credential = credential_for(account)
             status = credential.offline_status()
@@ -140,8 +144,8 @@ class ConnectionPool:
             fingerprint = credential.fingerprint()
             reconnected = False
             while True:
-                box = self._checkout(slot, account, credential, fingerprint, deadline)
                 try:
+                    box = self._checkout(slot, account, credential, fingerprint, deadline)
                     return op(box)
                 except Exception as e:
                     if deadline.remaining() <= 0 and not isinstance(e, TimeoutError):

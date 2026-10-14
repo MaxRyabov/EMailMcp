@@ -15,7 +15,7 @@ def test_style_head_and_table():
     assert "Сумма 100" in text and "Итого 200" in text
     assert text.index("Сумма") < text.index("Итого")
     assert "\n" in text[text.index("100") : text.index("Итого")]
-    for junk in ("color", "alert", "<", "T\n"):
+    for junk in ("color", "alert", "<", "T"):
         assert junk not in text
 
 
@@ -108,6 +108,47 @@ def test_first_of_repeated_attributes_wins():
     assert "секрет" not in html_to_text(html)
     html = f'<p style="display:inline" style="display:none">видно</p><p>{FILLER}</p>'
     assert "видно" in html_to_text(html)
+
+
+def test_self_closing_slash_is_ignored_on_normal_elements():
+    # HTML ignores "/" on a non-void element: the element stays open.
+    for html in (
+        "<style/>секрет</style>",
+        "<span hidden/>секрет</span>",
+        '<span style="display:none"/>секрет</span>',
+    ):
+        text = html_to_text(html + f"<p>{FILLER}</p>")
+        assert "секрет" not in text, html
+        assert FILLER in text
+    assert html_to_text("один<br/>два") == "один\nдва"
+
+
+def test_css_escapes_do_not_unhide():
+    for style in ("display:non\\65", "display:\\6e one", "d\\isplay:none", "font-size:\\30"):
+        text = html_to_text(f'<p style="{style}">секрет</p><p>{FILLER}</p>')
+        assert "секрет" not in text, style
+
+
+def test_nested_link_closes_the_outer_one():
+    assert html_to_text('<p><a href="1">A<a href="2">B</a></p>') == "A (1)B (2)"
+
+
+def test_link_scheme_is_case_insensitive():
+    assert html_to_text('<a href="JavaScript:alert(1)">жми</a>') == "жми"
+    assert html_to_text('<a href="MailTo:a@b.ru">a@b.ru</a>') == "a@b.ru"
+
+
+def test_link_with_only_hidden_text_shows_no_url():
+    text = html_to_text(
+        f'<a href="https://evil.example/do"><span hidden>жми</span></a><p>{FILLER}</p>'
+    )
+    assert "evil" not in text
+
+
+def test_fuse_fires_only_above_half():
+    exactly_half = html_to_text("<p hidden>abcd</p><p>efgh</p>")
+    assert HIDDEN_MARK in exactly_half and BROKEN_MARK not in exactly_half
+    assert html_to_text("<p hidden>abcde</p><p>efgh</p>").endswith(BROKEN_MARK)
 
 
 def test_links():

@@ -11,8 +11,8 @@ from fakemail import make_message
 
 from imap_mcp import accounts, imap, server
 from imap_mcp.auth import CredentialUnavailable, store
-from imap_mcp.guard import ReadOnlyViolation
-from imap_mcp.pool import ConnectionPool, Deadline
+from imap_mcp.guard import ReadOnlyIMAP4_SSL, ReadOnlyViolation
+from imap_mcp.pool import AccountBusy, ConnectionPool, Deadline
 
 OAUTH_ACCOUNT = """
 [[account]]
@@ -131,6 +131,27 @@ def test_one_reconnect_on_connection_error(mail, monkeypatch):
     assert len(mail["alpha"].sockets) == 2
 
 
+def test_failed_first_connect_is_retried_once(mail, monkeypatch):
+    real = ReadOnlyIMAP4_SSL._create_socket
+    attempts = []
+
+    def flaky(self, timeout):
+        attempts.append(self.host)
+        if len(attempts) == 1:
+            raise ConnectionResetError("reset by peer")
+        return real(self, timeout)
+
+    monkeypatch.setattr(ReadOnlyIMAP4_SSL, "_create_socket", flaky)
+    assert server.list_emails(account="alpha")["errors"] == []
+    assert len(attempts) == 2
+
+
+def test_busy_account_has_its_own_message():
+    assert server.describe(AccountBusy("account is busy")) == (
+        "unreachable: timeout (аккаунт занят другим вызовом)"
+    )
+
+
 def test_only_one_reconnect(mail, monkeypatch):
     def dead(box, folder):
         raise imaplib.IMAP4.abort("socket error: EOF")
@@ -226,7 +247,7 @@ def test_busy_account_times_out_instead_of_waiting_forever():
     slot.lock.acquire()
     try:
         account = accounts.Account("alpha", "a", "a@example.com", "h", 993, "X", True)
-        with pytest.raises(TimeoutError):
+        with pytest.raises(AccountBusy):
             pool.run(account, lambda box: None)
     finally:
         slot.lock.release()

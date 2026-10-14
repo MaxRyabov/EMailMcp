@@ -1,12 +1,15 @@
 """HTML to plain text on the standard library (D11).
 
-Hidden elements (the `hidden` attribute and inline styles that hide text) are
-dropped with a marker: mail is written by third parties, and hidden text is a
-classic carrier for instructions aimed at the model. If dropping would remove
-more than half of the text, the markup is probably broken; the text is then
-returned in full with a different marker.
+Hidden elements are dropped with a marker: mail is written by third parties,
+and hidden text is a classic carrier for instructions aimed at the model.
+Recognised: the `hidden` attribute and the inline styles `display:none`,
+`visibility:hidden`, `font-size:0`, `mso-hide:all`, `max-height:0` together with
+`overflow:hidden` (D11). If dropping would remove more than half of the text,
+the markup is probably broken; the text is then returned in full with a
+different marker.
 
-Text hidden through CSS classes ("white on white") is not recognised.
+Not recognised (residual risk): CSS classes ("white on white"), `opacity:0`,
+off-screen positioning and other styles outside the list above.
 """
 
 from __future__ import annotations
@@ -87,6 +90,7 @@ _P_SCOPE = frozenset({"td", "th", "table", "caption", "button", "template", "htm
 # The outermost closable element below the nearest bound is closed with everything
 # inside it: <tr> closes an open <td> together with its <tr>.
 _IMPLICIT = {
+    "a": ({"a"}, {"td", "th", "caption"}),
     "li": ({"li"}, {"ul", "ol", "menu", "table", "td", "th"}),
     "dt": ({"dt", "dd"}, {"dl", "table", "td", "th"}),
     "dd": ({"dt", "dd"}, {"dl", "table", "td", "th"}),
@@ -112,14 +116,24 @@ _MAX_HEIGHT_0 = re.compile(r"(?:^|;)max-height:0(?:\.0*)?(?:px|pt|em|rem|%)?(?:!
 _OVERFLOW_HIDDEN = re.compile(r"(?:^|;)overflow:hidden(?:!important)?(?:;|$)")
 _SPACES = re.compile(r"[ \t\r\f\v\u00a0]+")
 _CSS_COMMENT = re.compile(r"/\*.*?(?:\*/|$)", re.DOTALL)
+_CSS_ESCAPE = re.compile(r"\\(?:([0-9a-f]{1,6})\s?|(.))", re.DOTALL)
 _REPEATED_MARK = re.compile(rf"{re.escape(HIDDEN_MARK)}(?:\s*{re.escape(HIDDEN_MARK)})+")
+
+
+def _css_unescape(m: re.Match) -> str:
+    if m[1]:
+        cp = int(m[1], 16)
+        return chr(cp) if 0 < cp <= 0x10FFFF and not 0xD800 <= cp <= 0xDFFF else "�"
+    return m[2]
 
 
 def _hides(attrs: dict[str, str | None]) -> bool:
     if "hidden" in attrs:
         return True
-    # CSS comments are whitespace to a mail client: /**/display:none still hides.
+    # A mail client reads CSS comments as whitespace and decodes escapes:
+    # /**/display:none and display:non\65 still hide.
     style = _CSS_COMMENT.sub("", (attrs.get("style") or "").lower())
+    style = _CSS_ESCAPE.sub(_css_unescape, style).lower()
     style = re.sub(r"\s+", "", style)
     if not style:
         return False
@@ -178,13 +192,15 @@ class _Converter(HTMLParser):
             self._emit(f" {HIDDEN_MARK} ", hidden=False)
             self.full.pop()  # the fallback keeps the hidden text itself, not the marker
         if el.href is not None:
-            text = "".join(self.visible[el.start :]).strip()
+            # A link whose text is all hidden gets no URL either.
+            text = "".join(self.visible[el.start :]).replace(HIDDEN_MARK, "").strip()
             href = el.href
+            scheme = href.lower()  # URL schemes are case-insensitive
             if (
                 text
                 and href
-                and not href.startswith(("#", "javascript:"))
-                and href.removeprefix("mailto:") != text
+                and not scheme.startswith(("#", "javascript:"))
+                and (href[7:] if scheme.startswith("mailto:") else href) != text
             ):
                 self._emit(f" ({href})", hidden=self._in("hidden") or el.hidden)
         if el.tag in _CELLS:
@@ -236,9 +252,9 @@ class _Converter(HTMLParser):
         self.stack.append(el)
 
     def handle_startendtag(self, tag, attrs):
+        # HTML ignores the slash on a non-void element: <span hidden/>text</span>
+        # hides the text in a mail client, so it must here too.
         self.handle_starttag(tag, attrs)
-        if tag not in _VOID and self.stack and self.stack[-1].tag == tag:
-            self._close(self.stack.pop())
 
     def handle_endtag(self, tag):
         if tag == "br":

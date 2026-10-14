@@ -16,7 +16,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from . import accounts as acct
 from . import ids, imap, search, status, validate
 from .auth import CredentialUnavailable
-from .pool import ConnectionPool, MailError
+from .pool import AccountBusy, ConnectionPool, MailError
 from .redact import redact
 from .validate import IntArg
 
@@ -42,7 +42,9 @@ class ListResult(TypedDict):
 
 def describe(e: Exception, account: acct.Account | None = None) -> str:
     """Error text for `errors` and tool errors, secrets redacted."""
-    if isinstance(e, TimeoutError):
+    if isinstance(e, AccountBusy):
+        text = "unreachable: timeout (аккаунт занят другим вызовом)"
+    elif isinstance(e, TimeoutError):
         text = "unreachable: timeout"
     elif isinstance(e, CredentialUnavailable):
         text = f"{e.status}: {e}"

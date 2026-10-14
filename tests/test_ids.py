@@ -4,7 +4,7 @@ import pytest
 from fakemail import make_message
 from mcp.server.mcpserver.exceptions import ToolError
 
-from imap_mcp import ids, server
+from imap_mcp import ids, server, validate
 from imap_mcp.validate import ArgumentError
 
 
@@ -14,6 +14,11 @@ def test_round_trip(folder):
     assert text.startswith("v1.alpha.")
     assert text.count(".") == 4
     assert ids.parse(text) == ids.MessageId("alpha", folder, 7, 42)
+
+
+def test_longest_folder_name_round_trips():
+    folder = "\U0001f600" * validate.FOLDER_MAX  # 4 UTF-8 bytes per character
+    assert ids.parse(ids.make("alpha", folder, 7, 42)).folder == folder
 
 
 @pytest.mark.parametrize(

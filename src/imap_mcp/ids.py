@@ -12,10 +12,14 @@ import re
 from dataclasses import dataclass
 
 from . import validate
+from .accounts import KEY_PATTERN
 
 _UINT32_MAX = 2**32 - 1
+# Base64 of the longest folder name: FOLDER_MAX characters of up to 4 UTF-8 bytes.
+_FOLDER_B64_MAX = (validate.FOLDER_MAX * 4 * 4 + 2) // 3
 _ID = re.compile(
-    r"v1\.(?P<account>[a-z0-9_-]{1,32})\.(?P<folder>[A-Za-z0-9_-]{1,2000})"
+    rf"v1\.(?P<account>{KEY_PATTERN.pattern.strip('^$')})"
+    rf"\.(?P<folder>[A-Za-z0-9_-]{{1,{_FOLDER_B64_MAX}}})"
     r"\.(?P<uidvalidity>[0-9]{1,10})\.(?P<uid>[0-9]{1,10})"
 )
 
