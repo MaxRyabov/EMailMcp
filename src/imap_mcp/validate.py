@@ -43,6 +43,8 @@ class ArgumentError(ValueError):
 
 
 def shown(value: object) -> str:
+    if isinstance(value, str) and len(value) > 40:
+        value = value[:40]  # repr of a huge argument would copy all of it
     text = repr(value)
     return text if len(text) <= 40 else text[:37] + "..."
 

@@ -117,8 +117,8 @@ _HEAD_CONTENT = frozenset(
     {"base", "link", "meta", "noscript", "script", "style", "template", "title"}
 )
 
-# A zero length in any spelling: 0, 0.0, .0, 0px, calc(0px).
-_ZERO = r"(?:0+(?:\.0*)?|\.0+)(?:px|pt|em|rem|ex|ch|vh|vw|%)?"
+# A zero length in any spelling: 0, -0, 0.0, .0, 0px, 0cm, calc(0px).
+_ZERO = r"[+-]?(?:0+(?:\.0*)?|\.0+)(?:px|pt|pc|em|rem|ex|ch|vh|vw|vmin|vmax|cm|mm|in|q|%)?"
 _ZERO = rf"(?:{_ZERO}|calc\({_ZERO}\))"
 _END = r"(?:!important)?(?:;|$)"
 _STYLE_HIDES = re.compile(

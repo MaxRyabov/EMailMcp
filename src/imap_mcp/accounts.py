@@ -26,7 +26,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "accounts.toml"
 
 # The key is part of every message id (v1.<key>.<...>), so it must not contain dots.
 KEY_BODY = r"[a-z0-9_-]{1,32}"  # also the account segment of a message id (ids.py)
-KEY_PATTERN = re.compile(rf"^{KEY_BODY}$")
+KEY_PATTERN = re.compile(rf"^(?:{KEY_BODY})$")
 AUTH_METHODS = ("password", "oauth")
 
 

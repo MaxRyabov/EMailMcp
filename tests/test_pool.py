@@ -229,7 +229,11 @@ def test_threads_on_one_account_do_not_deadlock(mail):
         except Exception as e:  # noqa: BLE001
             failures.append(e)
 
-    threads = [threading.Thread(target=worker, args=(k,)) for k in ("alpha", "alpha", "gmailish")]
+    # daemon: a real deadlock must fail the test, not hang the interpreter
+    threads = [
+        threading.Thread(target=worker, args=(k,), daemon=True)
+        for k in ("alpha", "alpha", "gmailish")
+    ]
     for t in threads:
         t.start()
     for t in threads:

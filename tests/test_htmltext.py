@@ -119,6 +119,10 @@ def test_summary_inside_hidden_details_stays_hidden():
 
 def test_zero_in_any_spelling_hides():
     for style in (
+        "font-size:0cm",
+        "font-size:-0px",
+        "font-size:+.0in",
+        "font-size:0q",
         "font-size:.0px",
         "font-size:0.0em",
         "font-size:calc(0px)",
@@ -135,7 +139,8 @@ def test_deep_nesting_is_linear():
     hostile = "<p><table>" + "<span>" * 20_000 + "<div>x</div>" * 20_000
     start = time.perf_counter()
     html_to_text(hostile)
-    assert time.perf_counter() - start < 5  # quadratic took minutes
+    elapsed = time.perf_counter() - start
+    assert elapsed < 5, f"{elapsed:.1f} s"  # linear: about 0.5 s; quadratic: minutes
 
 
 def test_fuse_keeps_text_when_most_of_it_is_hidden():

@@ -54,6 +54,10 @@ def test_limit_bounds(value):
         validate.limit(value)
 
 
+def test_shown_value_is_cut_before_repr():
+    assert validate.shown("x" * 1_000_000) == repr("x" * 40)[:37] + "..."
+
+
 def test_limit_is_capped_not_rejected():
     assert validate.limit(25) == (25, False)
     assert validate.limit(100) == (100, False)
