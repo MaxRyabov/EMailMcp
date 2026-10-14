@@ -224,7 +224,11 @@ def read_message(box: MailBox, mid: ids.MessageId) -> dict:
     head = _fetch(box, [mid.uid], headers_only=True).get(mid.uid)
     if head is None:
         raise MailError("письмо не найдено: удалено или перемещено")
-    msg = head if head.size_rfc822 > BODY_MAX_SIZE else _fetch(box, [mid.uid], False).get(mid.uid)
+    msg = (
+        head
+        if head.size_rfc822 > BODY_MAX_SIZE
+        else _fetch(box, [mid.uid], headers_only=False).get(mid.uid)
+    )
     if msg is None:
         raise MailError("письмо не найдено: удалено или перемещено")
     date = message_date(msg)

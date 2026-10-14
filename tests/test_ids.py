@@ -45,7 +45,7 @@ def test_longest_folder_name_round_trips():
     ],
 )
 def test_garbage_is_rejected(bad):
-    with pytest.raises(ArgumentError, match="^id: неверный формат id"):
+    with pytest.raises(ArgumentError, match="^id: неверный формат id \\("):
         ids.parse(bad)
 
 

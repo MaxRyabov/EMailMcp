@@ -87,6 +87,55 @@ def test_unclosed_list_items_and_cells():
 def test_void_elements_do_not_swallow_text():
     text = html_to_text(f'<img src="x.png" style="display:none"><br style="display:none">{FILLER}')
     assert FILLER in text
+    assert "x.png" not in text
+
+
+def test_elements_a_mail_client_does_not_render():
+    for html in (
+        "<iframe>секрет</iframe>",
+        "<datalist><option>секрет</option></datalist>",
+        "<dialog>секрет</dialog>",
+        "<noembed>секрет</noembed>",
+    ):
+        text = html_to_text(html + f"<p>{FILLER}</p>")
+        assert "секрет" not in text, html
+        assert HIDDEN_MARK in text, html
+    assert "видно" in html_to_text(f"<dialog open>видно</dialog><p>{FILLER}</p>")
+
+
+def test_collapsed_details_shows_only_summary():
+    html = f"<details><summary>Заголовок</summary>секрет<p>и это</p></details><p>{FILLER}</p>"
+    text = html_to_text(html)
+    assert "Заголовок" in text and "секрет" not in text and "и это" not in text
+    assert HIDDEN_MARK in text
+    opened = html_to_text(f"<details open><summary>З</summary>видно</details><p>{FILLER}</p>")
+    assert "видно" in opened
+
+
+def test_summary_inside_hidden_details_stays_hidden():
+    html = f'<details style="display:none"><summary>секрет</summary></details><p>{FILLER}</p>'
+    assert "секрет" not in html_to_text(html)
+
+
+def test_zero_in_any_spelling_hides():
+    for style in (
+        "font-size:.0px",
+        "font-size:0.0em",
+        "font-size:calc(0px)",
+        "visibility:collapse",
+        "max-height:.0;overflow:hidden",
+    ):
+        text = html_to_text(f'<p style="{style}">секрет</p><p>{FILLER}</p>')
+        assert "секрет" not in text, style
+
+
+def test_deep_nesting_is_linear():
+    import time
+
+    hostile = "<p><table>" + "<span>" * 20_000 + "<div>x</div>" * 20_000
+    start = time.perf_counter()
+    html_to_text(hostile)
+    assert time.perf_counter() - start < 5  # quadratic took minutes
 
 
 def test_fuse_keeps_text_when_most_of_it_is_hidden():

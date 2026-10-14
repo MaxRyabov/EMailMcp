@@ -42,7 +42,7 @@ class ArgumentError(ValueError):
         self.param = param
 
 
-def _shown(value: object) -> str:
+def shown(value: object) -> str:
     text = repr(value)
     return text if len(text) <= 40 else text[:37] + "..."
 
@@ -50,7 +50,7 @@ def _shown(value: object) -> str:
 def integer(param: str, value: object, lo: int, hi: int | None = None) -> int:
     allowed = f"от {lo} до {hi}" if hi is not None else f"не меньше {lo}"
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ArgumentError(param, f"ожидается целое число {allowed}, получено {_shown(value)}")
+        raise ArgumentError(param, f"ожидается целое число {allowed}, получено {shown(value)}")
     if value < lo or (hi is not None and value > hi):
         raise ArgumentError(param, f"ожидается целое число {allowed}, получено {value}")
     return value
@@ -62,17 +62,17 @@ def limit(value: object) -> tuple[int, bool]:
     return min(n, LIMIT_MAX), n > LIMIT_MAX
 
 
-def _control(text: str) -> bool:
-    return any(unicodedata.category(c) in ("Cc", "Zl", "Zp") for c in text)
+def _control(value: str) -> bool:
+    return any(unicodedata.category(c) in ("Cc", "Zl", "Zp") for c in value)
 
 
 def text(param: str, value: object, max_len: int) -> str:
     if not isinstance(value, str):
-        raise ArgumentError(param, f"ожидается строка, получено {_shown(value)}")
+        raise ArgumentError(param, f"ожидается строка, получено {shown(value)}")
+    if len(value) > max_len:  # first: strip() would copy a huge value
+        raise ArgumentError(param, f"ожидается строка длиной от 1 до {max_len} символов")
     if not value.strip():
         raise ArgumentError(param, "ожидается непустая строка, а не одни пробелы")
-    if len(value) > max_len:
-        raise ArgumentError(param, f"ожидается строка длиной от 1 до {max_len} символов")
     if _control(value):
         raise ArgumentError(param, "недопустимые управляющие символы (CR, LF, TAB и т. п.)")
     return value
@@ -104,7 +104,7 @@ def since(value: object) -> dt.date | None:
             return dt.date.fromisoformat(value)
         except ValueError:
             pass
-    raise ArgumentError("since", f"ожидается дата YYYY-MM-DD, получено {_shown(value)}")
+    raise ArgumentError("since", f"ожидается дата YYYY-MM-DD, получено {shown(value)}")
 
 
 def account(value: object) -> str | None:

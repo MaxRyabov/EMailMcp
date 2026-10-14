@@ -1,5 +1,4 @@
 import datetime as dt
-from types import SimpleNamespace
 
 import pytest
 
@@ -49,23 +48,6 @@ def fake_mailbox(monkeypatch):
     FakeMailBox.instances = []
     FakeMailBox.messages = []
     monkeypatch.setattr(imap, "ReadOnlyMailBox", FakeMailBox)
-
-
-def fake_msg(**overrides):
-    base = dict(
-        uid="42",
-        from_="sender@example.com",
-        to=("rcpt@example.com",),
-        cc=(),
-        subject="Hello",
-        date=dt.datetime(2026, 7, 30, 12, 0, tzinfo=dt.UTC),
-        flags=("\\Seen",),
-        text="line one\nline two",
-        html="",
-        headers={"message-id": ["<abc@example.com>"]},
-    )
-    base.update(overrides)
-    return SimpleNamespace(**base)
 
 
 def test_open_box_requires_password(config):

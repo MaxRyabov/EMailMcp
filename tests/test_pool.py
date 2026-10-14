@@ -246,7 +246,7 @@ def test_busy_account_times_out_instead_of_waiting_forever():
     slot = pool._slot("alpha")
     slot.lock.acquire()
     try:
-        account = accounts.Account("alpha", "a", "a@example.com", "h", 993, "X", True)
+        account = accounts.Account("alpha", "a", "a@example.com", "h", 993, "X", enabled=True)
         with pytest.raises(AccountBusy):
             pool.run(account, lambda box: None)
     finally:
