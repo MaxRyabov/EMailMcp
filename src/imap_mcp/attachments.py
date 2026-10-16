@@ -146,37 +146,57 @@ def run(job: dict, *, timeout: float = TIMEOUT, target: Callable = worker.main) 
     """Run `target` on `job` in a fresh spawn process; kill it after `timeout`.
 
     The child waits for the job before doing anything, so on Windows the Job
-    Object is assigned first. The answer is awaited with poll(), not join(): a
-    child blocked on sending a long text would never exit while nobody reads.
+    Object is assigned first. Sending the job and reading the answer happen in a
+    helper thread joined with the deadline: either can block on a stuck child (a
+    15 MB job does not fit in the pipe), and killing the child unblocks both.
     """
     deadline = time.monotonic() + timeout
     ctx = multiprocessing.get_context("spawn")
     here, there = ctx.Pipe()
     proc = ctx.Process(target=target, args=(there,), daemon=True, name="imap-mcp-extract")
-    proc.start()
-    there.close()
+    try:
+        proc.start()
+    finally:
+        there.close()
+    answer: list[dict] = []
+    exchange = threading.Thread(target=_exchange, args=(here, job, answer), daemon=True)
     job_object = None
     try:
         if sys.platform == "win32":
-            job_object = _JobObject(proc.sentinel, WINDOWS_MEMORY)
-        here.send(job)
-        if not here.poll(max(0.0, deadline - time.monotonic())):
-            raise MailError(f"timeout: разбор вложения дольше {timeout:g} с, процесс остановлен")
-        result = here.recv()
-    except (EOFError, BrokenPipeError, ConnectionResetError):
-        result = None  # the child died without an answer
+            try:
+                job_object = _JobObject(proc.sentinel, WINDOWS_MEMORY)
+            except OSError as e:
+                raise MailError(
+                    f"isolation error: не удалось ограничить память процесса разбора: {e}"
+                ) from None
+        exchange.start()
+        exchange.join(max(0.0, deadline - time.monotonic()))
+        timed_out = exchange.is_alive()
     finally:
         if proc.is_alive():
             proc.kill()
         proc.join()
+        if exchange.is_alive():
+            exchange.join(5)  # the pipe is broken now, the thread ends
         here.close()
         if job_object is not None:
             job_object.close()
-    if result is None:
+    if timed_out:
+        raise MailError(f"timeout: разбор вложения дольше {timeout:g} с, процесс остановлен")
+    if not answer:
         raise MailError(f"parse error: процесс разбора завершился с кодом {proc.exitcode}")
+    result = answer[0]
     if "error" in result:
         raise MailError(result["error"])
     return result
+
+
+def _exchange(conn, job: dict, answer: list[dict]) -> None:
+    try:
+        conn.send(job)
+        answer.append(conn.recv())
+    except (EOFError, OSError):
+        pass  # the child died or was killed: no answer
 
 
 class _JobObject:

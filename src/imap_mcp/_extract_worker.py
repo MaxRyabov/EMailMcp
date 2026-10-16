@@ -11,7 +11,6 @@ itself, without a child process.
 
 from __future__ import annotations
 
-import codecs
 import io
 import os
 import sys
@@ -30,7 +29,9 @@ ERROR_MAX = 300
 NO_TEXT_LAYER = "no text layer, OCR not supported"
 OWNER_PASSWORD = "owner-password protected"
 
-_BOMS = (
+_BOMS = (  # UTF-32 first: its little-endian BOM starts with the UTF-16 one
+    (b"\xff\xfe\x00\x00", "utf-32-le"),
+    (b"\x00\x00\xfe\xff", "utf-32-be"),
     (b"\xef\xbb\xbf", "utf-8"),
     (b"\xff\xfe", "utf-16-le"),
     (b"\xfe\xff", "utf-16-be"),
@@ -219,8 +220,10 @@ def decode_text(data: bytes, charset: str | None = None) -> str:
 
 
 def _known(charset: str) -> bool:
+    # The sender picks the charset: base64, rot13 and other non-text codecs
+    # cannot decode bytes to str and fall through to UTF-8 and cp1251.
     try:
-        codecs.lookup(charset)
+        b"a".decode(charset, errors="replace")  # empty bytes skip the codec lookup
     except LookupError:
         return False
     return True

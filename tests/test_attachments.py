@@ -2,6 +2,7 @@
 process, limits, the message cache and the get_attachment_text tool."""
 
 import multiprocessing
+import os
 import sys
 import time
 
@@ -209,12 +210,40 @@ def test_charset_from_mime_part_is_used():
     assert _extract_worker.decode_text("Привет".encode("cp1251"), "x-unknown") == "Привет"
 
 
+@pytest.mark.parametrize("charset", ["base64", "rot13", "hex", "zlib"])
+def test_non_text_codec_as_charset_falls_back(charset):
+    assert _extract_worker.decode_text("Привет".encode("cp1251"), charset) == "Привет"
+
+
+@pytest.mark.parametrize("encoding", ["utf-32-le", "utf-32-be"])
+def test_utf32_bom_is_not_taken_for_utf16(encoding):
+    data = "﻿Сумма;500".encode(encoding)
+    assert _extract_worker.decode_text(data) == "Сумма;500"
+
+
 # --- 5.4 the child process -----------------------------------------------------------
 
 
-def test_extraction_runs_in_a_child_process():
-    result = attachments.run({"kind": "pdf", "data": make_pdf(["Invoice 42"])})
-    assert result["text"] == "Invoice 42"
+def test_pdf_and_docx_are_parsed_by_run(monkeypatch):
+    jobs = []
+    real_run = attachments.run
+
+    def spy(job, **kwargs):
+        jobs.append(job["kind"])
+        return real_run(job, **kwargs)
+
+    monkeypatch.setattr(attachments, "run", spy)
+    assert attachments.extract(attachment("a.pdf", PDF, make_pdf(["A"])))["text"] == "A"
+    assert attachments.extract(attachment("b.docx", DOCX, make_docx(["B"])))["text"] == "B"
+    assert jobs == ["pdf", "docx"]
+
+
+def test_run_executes_in_another_process():
+    child = int(attachments.run({}, target=workers.pid)["text"])
+    assert child != os.getpid()
+    assert attachments.run({"kind": "pdf", "data": make_pdf(["Invoice 42"])})["text"] == (
+        "Invoice 42"
+    )
 
 
 def test_worker_does_not_import_server_mcp_or_imap():
@@ -240,6 +269,25 @@ def test_timeout_kills_the_child_and_the_next_call_runs_at_once():
     started = time.monotonic()
     assert attachments.run({"kind": "pdf", "data": make_pdf(["next"])})["text"] == "next"
     assert time.monotonic() - started < 10
+
+
+def test_timeout_holds_when_the_child_never_reads_a_large_job():
+    started = time.monotonic()
+    with pytest.raises(MailError, match="^timeout"):
+        attachments.run({"data": b"x" * (15 * 1024 * 1024)}, target=workers.deaf, timeout=2)
+    assert time.monotonic() - started < 10
+    assert multiprocessing.active_children() == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Job Object exists only on Windows")
+def test_job_object_failure_is_a_tool_error(monkeypatch):
+    def refuse(*args):
+        raise OSError("access denied")
+
+    monkeypatch.setattr(attachments, "_JobObject", refuse)
+    with pytest.raises(MailError, match="^isolation error: .*access denied"):
+        attachments.run({}, target=workers.pid)
+    assert multiprocessing.active_children() == []
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="macOS does not enforce RLIMIT_AS")

@@ -49,7 +49,8 @@ def make_message(
             msg.add_alternative(html, subtype="html")
     elif html is not None:
         msg.set_content(html, subtype="html")
-    for name, ctype, data, inline, *params in attachments:  # params: {"charset": ...}
+    for name, ctype, data, inline, *rest in attachments:
+        (params,) = rest or [None]  # optional MIME parameters: {"charset": ...}
         maintype, subtype = ctype.split("/")
         msg.add_attachment(
             data,
@@ -57,7 +58,7 @@ def make_message(
             subtype=subtype,
             filename=name,
             disposition="inline" if inline else "attachment",
-            params=params[0] if params else None,
+            params=params,
         )
     return msg.as_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
 

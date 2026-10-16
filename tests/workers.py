@@ -37,6 +37,10 @@ def _exit(job):
     os._exit(3)
 
 
+def _pid(job):
+    return {"text": str(os.getpid())}
+
+
 def sleepy(conn):
     _extract_worker.serve(conn, _sleep)
 
@@ -55,3 +59,12 @@ def modules(conn):
 
 def crashing(conn):
     _extract_worker.serve(conn, _exit)
+
+
+def pid(conn):
+    _extract_worker.serve(conn, _pid)
+
+
+def deaf(conn):
+    """Never reads the job: the parent's send of a large job blocks."""
+    time.sleep(60)
