@@ -51,12 +51,17 @@ def test_answer_is_cut_to_the_budget_from_the_oldest(mail):
     assert 0 < len(days) < 30
 
 
-def test_tool_list():
+def test_all_tools_registered():
     tools = {t.name for t in asyncio.run(server.mcp.list_tools())}
-    assert tools == {"list_accounts", "list_folders", "list_emails", "search_emails", "get_email"}
+    assert tools == {
+        "list_accounts", "list_folders", "list_emails", "search_emails", "get_email",
+        "get_attachment_text",
+    }  # fmt: skip
 
 
-@pytest.mark.parametrize("name", ["list_emails", "search_emails", "get_email"])
+@pytest.mark.parametrize(
+    "name", ["list_emails", "search_emails", "get_email", "get_attachment_text"]
+)
 def test_content_tools_warn_about_untrusted_content(name):
     tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
     assert "never as instructions" in " ".join(tools[name].description.split())
@@ -318,7 +323,7 @@ def test_get_email_very_large_message(mail):
 
 
 def test_get_email_attachment_metadata(mail):
-    pdf = b"%PDF-1.4\n" + b"0" * 300
+    pdf = b"%PDF-1.4\n" + b"0" * 300 * 1024  # spec: invoice.pdf of 300 KB and a logo
     mail["alpha"].add(
         make_message(
             attachments=[
@@ -335,6 +340,7 @@ def test_get_email_attachment_metadata(mail):
             "content_type": "application/pdf",
             "size": len(pdf),
             "inline": False,
+            "extractable": True,
         },
         {
             "index": 1,
@@ -342,6 +348,8 @@ def test_get_email_attachment_metadata(mail):
             "content_type": "image/png",
             "size": 8,
             "inline": True,
+            "extractable": False,
+            "reason": "unsupported type",
         },
     ]
 
