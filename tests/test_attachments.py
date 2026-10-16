@@ -175,6 +175,19 @@ def test_docx_paragraphs_and_tables_in_document_order():
     assert text == "Договор №5\nТовар\tЦена\nСтол\t500\nПодписи"
 
 
+def test_docx_text_box_is_read_once():
+    box = "<w:txbxContent><w:p><w:r><w:t>Box</w:t></w:r></w:p></w:txbxContent>"
+    xml = document_xml(
+        "<w:p><w:r><w:t>Before </w:t></w:r><w:r>"
+        '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
+        f'<mc:Choice Requires="wps"><w:drawing><wps:txbx xmlns:wps="urn:wps">{box}</wps:txbx>'
+        "</w:drawing></mc:Choice>"
+        f'<mc:Fallback><w:pict><v:textbox xmlns:v="urn:v">{box}</v:textbox></w:pict></mc:Fallback>'
+        "</mc:AlternateContent></w:r></w:p>"
+    )
+    assert _extract_worker.docx_text(make_docx(xml=xml))["text"] == "Before Box"
+
+
 def test_docx_with_external_entity_is_unsafe_xml():
     xml = document_xml(
         "<w:p><w:r><w:t>&xxe;</w:t></w:r></w:p>",

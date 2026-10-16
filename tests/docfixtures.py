@@ -121,6 +121,8 @@ def zip_bomb(unpacked: int = 2 * 1024**3, name: str = "word/document.xml") -> by
     once and repeated: after Z_FULL_FLUSH no block refers to the one before it.
     """
     chunk = b"\0" * (1 << 24)
+    if unpacked <= 0 or unpacked % len(chunk):
+        raise ValueError(f"unpacked must be a positive multiple of {len(chunk)}")
     count = unpacked // len(chunk)
     deflater = zlib.compressobj(9, zlib.DEFLATED, -15)
     block = deflater.compress(chunk) + deflater.flush(zlib.Z_FULL_FLUSH)

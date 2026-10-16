@@ -3,7 +3,9 @@
 This module imports only the standard library, pypdf and defusedxml: never the
 server, mcp or the IMAP layer. The parent (attachments.py) starts `main` with the
 spawn method, puts the process under a memory limit and only then sends the job,
-so no parsing happens before the limit is in place.
+so no parsing happens before the limit is in place. The limit exists on Windows
+(Job Object) and Linux (RLIMIT_AS); macOS does not enforce RLIMIT_AS, so there
+only the 15 MB input limit and the 30 s timeout apply (spec attachment-text).
 
 decode_text() and bom() are plain functions: the parent decodes text attachments
 itself, without a child process.
@@ -37,6 +39,7 @@ _BOMS = (  # UTF-32 first: its little-endian BOM starts with the UTF-16 one
     (b"\xfe\xff", "utf-16-be"),
 )
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
 
 
 class ExtractError(Exception):
@@ -134,7 +137,7 @@ def _read_limited(zf: zipfile.ZipFile, name: str, budget: int) -> bytes:
             total += len(chunk)
             if total > budget:
                 raise ExtractError(
-                    f"too large: {name} больше {DOCX_XML_MAX // 2**20} МБ после распаковки"
+                    f"too large: {name} больше {budget // 2**20} МБ после распаковки"
                 )
             chunks.append(chunk)
     return b"".join(chunks)
@@ -166,14 +169,27 @@ def _blocks(elem) -> Iterator[str]:
             yield _paragraph(child)
         elif child.tag == f"{_W}tbl":
             yield _table(child)
-        else:  # sdt, customXml, tracked insertions: containers of paragraphs
+        elif child.tag != _MC_FALLBACK:  # sdt, customXml, insertions hold paragraphs
             yield from _blocks(child)
+
+
+def _runs(elem) -> Iterator:
+    """Runs in document order, those of text boxes included, without mc:Fallback.
+
+    Word saves a text box twice, as mc:Choice (DrawingML) and mc:Fallback (VML):
+    reading both would repeat its text.
+    """
+    for child in elem:
+        if child.tag == f"{_W}r":
+            yield child
+        if child.tag != _MC_FALLBACK:
+            yield from _runs(child)
 
 
 def _paragraph(p) -> str:
     # Runs only: w:tab inside w:pPr is a tab stop definition, not a character.
     parts = []
-    for run in p.iter(f"{_W}r"):
+    for run in _runs(p):
         for el in run:
             if el.tag == f"{_W}t":
                 parts.append(el.text or "")
