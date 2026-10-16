@@ -3,11 +3,13 @@ import textwrap
 import keyring
 import pytest
 from fakeimap import FakeSocket
+from fakemail import FakeClock, FakeMailSocket, MailState
 from keyring.backend import KeyringBackend
 from keyring.errors import PasswordDeleteError
 
-from imap_mcp import accounts, redact
+from imap_mcp import accounts, redact, server
 from imap_mcp.guard import ReadOnlyIMAP4_SSL
+from imap_mcp.pool import ConnectionPool
 
 
 class MemoryKeyring(KeyringBackend):
@@ -85,6 +87,40 @@ def config(tmp_path, monkeypatch):
     accounts.clear_cache()
     yield path
     accounts.clear_cache()
+
+
+class Servers(dict):
+    """Fake IMAP servers by account key, sharing one fake clock; `pool` is server.pool."""
+
+    def __init__(self):
+        super().__init__()
+        self.clock = FakeClock()
+        self.pool = None
+
+
+@pytest.fixture
+def mail(config, monkeypatch):
+    """A mailbox per test account behind the real guard and imaplib, a fresh pool."""
+    servers = Servers()
+    servers["alpha"] = MailState(servers.clock)
+    servers["gmailish"] = MailState(servers.clock)
+    servers["yandex"] = MailState(servers.clock)  # for tests that add an OAuth account
+    by_host = {
+        "imap.example.com": servers["alpha"],
+        "imap.gmail.com": servers["gmailish"],
+        "imap.yandex.com": servers["yandex"],
+    }
+
+    def fake_create_socket(self, timeout):
+        return FakeMailSocket(by_host[self.host], timeout)
+
+    monkeypatch.setattr(ReadOnlyIMAP4_SSL, "_create_socket", fake_create_socket)
+    monkeypatch.setenv("ALPHA_PW", "alpha-password")
+    monkeypatch.setenv("BETA_PW", "beta-password")
+    servers.pool = ConnectionPool(clock=servers.clock, janitor=False)
+    monkeypatch.setattr(server, "pool", servers.pool)
+    yield servers
+    servers.pool.close_all()
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from mcp.client import Client
 from mcp.server.mcpserver import MCPServer
 from mcp_types import CallToolResult, TextContent
 
-from imap_mcp import accounts, imap, server, status
+from imap_mcp import accounts, ids, server, status
 from imap_mcp.redact import MASK, redact, register
 
 TOKEN = "y0_AgAAAABkZXZpY2UtdG9rZW4tZm9yLXRlc3RzLW9ubHk"
@@ -70,9 +70,16 @@ def test_safe_tool_keeps_tool_schema():
     tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
     assert set(tools["list_emails"].input_schema["properties"]) == {
         "account",
+        "folder",
         "since",
         "unread_only",
         "limit",
+    }
+    assert set(tools["list_emails"].output_schema["properties"]) == {
+        "rows",
+        "errors",
+        "limit_capped",
+        "truncated",
     }
     assert set(tools["list_accounts"].output_schema["properties"]) == {"accounts", "warnings"}
 
@@ -135,9 +142,10 @@ def test_redact_leaves_ordinary_text_and_base64():
 
 TOOL_ARGS = {
     "list_accounts": {},
+    "list_folders": {},
     "list_emails": {},
     "search_emails": {"query": "invoice"},
-    "get_email": {"account": "alpha", "id": "1"},
+    "get_email": {"id": ids.make("alpha", "INBOX", 7, 1)},
 }
 
 
@@ -163,15 +171,15 @@ def test_every_tool_turns_exception_with_secret_into_redacted_error(name, monkey
     assert "validation error" not in text
 
 
-def test_per_account_error_rows_are_redacted(config, monkeypatch):
+def test_per_account_errors_are_redacted(config, monkeypatch):
     register(TOKEN)
 
-    def fetch_rows(account, **kwargs):
+    def run(account, op):
         raise RuntimeError(f"rejected {TOKEN}")
 
-    monkeypatch.setattr(imap, "fetch_rows", fetch_rows)
-    rows = server.list_emails()
-    assert [r["error"] for r in rows] == [f"RuntimeError: rejected {MASK}"] * 2
+    monkeypatch.setattr(server.pool, "run", run)
+    errors = server.list_emails()["errors"]
+    assert [e["error"] for e in errors] == [f"RuntimeError: rejected {MASK}"] * 2
 
 
 def test_missing_config_is_a_tool_error_with_path(tmp_path, monkeypatch, request):
