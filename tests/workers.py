@@ -65,6 +65,31 @@ def pid(conn):
     _extract_worker.serve(conn, _pid)
 
 
+def unlimited(conn):
+    """The memory limit cannot be set: serve() must answer, not die."""
+
+    def refuse():
+        raise _extract_worker.ExtractError("isolation error: setrlimit refused")
+
+    _extract_worker._limit_memory = refuse
+    _extract_worker.serve(conn, _pid)
+
+
+def low_hard_limit(conn):
+    """Linux: a hard RLIMIT_AS below 2 GB is already in place."""
+    import resource
+
+    low = 3 * 1024**3 // 2
+    resource.setrlimit(resource.RLIMIT_AS, (low, low))
+    _extract_worker.serve(conn, _address_limit)
+
+
+def _address_limit(job):
+    import resource
+
+    return {"text": str(resource.getrlimit(resource.RLIMIT_AS)[1])}
+
+
 def deaf(conn):
     """Never reads the job: the parent's send of a large job blocks."""
     time.sleep(60)

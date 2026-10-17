@@ -63,24 +63,34 @@ def _silence() -> None:
 
 def _limit_memory() -> None:
     # Windows: the parent assigns a Job Object. macOS does not enforce RLIMIT_AS.
-    if sys.platform.startswith("linux"):
-        import resource
+    if not sys.platform.startswith("linux"):
+        return
+    import resource
 
-        resource.setrlimit(resource.RLIMIT_AS, (LINUX_ADDRESS_SPACE, LINUX_ADDRESS_SPACE))
+    try:
+        _, hard = resource.getrlimit(resource.RLIMIT_AS)
+        limit = LINUX_ADDRESS_SPACE
+        if hard != resource.RLIM_INFINITY:
+            limit = min(limit, hard)  # raising the hard limit needs privileges
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    except (OSError, ValueError) as e:
+        raise ExtractError(f"isolation error: не удалось ограничить память: {e}") from None
 
 
 def serve(conn, handler: Callable[[dict], dict]) -> None:
-    """Child entry: silence output, limit memory, wait for the job, answer once.
+    """Child entry: silence output, wait for the job, limit memory, answer once.
 
     The job itself is the go signal: the parent sends it after the Job Object is
-    assigned. Every failure becomes {"error": text}, so the parent never has to
-    tell a refusal from a crash by the exit code.
+    assigned. RLIMIT_AS is set after the job arrives, still before any parsing,
+    so a failure to set it reaches the parent as an answer. Every failure becomes
+    {"error": text}, so the parent never has to tell a refusal from a crash by
+    the exit code.
     """
     _silence()
-    _limit_memory()
     try:
         job = conn.recv()
         try:
+            _limit_memory()
             result = handler(job)
         except ExtractError as e:
             result = {"error": str(e)}

@@ -312,6 +312,16 @@ def test_memory_limit():
     assert attachments.run({"bytes": within}, target=workers.hungry)["text"] == str(within)
 
 
+def test_failure_to_set_the_memory_limit_is_an_answer():
+    with pytest.raises(MailError, match="^isolation error: setrlimit refused"):
+        attachments.run({}, target=workers.unlimited)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="RLIMIT_AS is set on Linux")
+def test_lower_hard_address_limit_is_kept():
+    assert attachments.run({}, target=workers.low_hard_limit)["text"] == str(3 * 1024**3 // 2)
+
+
 def test_worker_output_never_reaches_the_parent_streams(capfd):
     assert attachments.run({}, target=workers.noisy)["text"] == "printed"
     out, err = capfd.readouterr()
