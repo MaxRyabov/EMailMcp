@@ -161,6 +161,28 @@ headers, attachment metadata and the body as text (plain text preferred, HTML
 converted, hidden elements removed and marked). Long bodies come in windows of
 `max_chars` (20 000 by default, at most 40 000): call again with
 `offset=next_offset` while `truncated` is true. Reading does not mark it read.
+Each attachment comes with `index`, `filename`, `content_type`, `size`, `inline`
+and `extractable` (with a `reason` when false); contents are never included.
+
+**`get_attachment_text(id, index, offset?, max_chars?)`** the text of one
+attachment: PDF (the first 50 pages, `pages_total` and `pages_read`), DOCX
+(paragraphs and tables in order), TXT and CSV (BOM, then the MIME charset, then
+UTF-8, then cp1251). The type is detected from the content, so a PDF sent as
+`application/octet-stream` is read, and an `image/png` that is really a PDF is
+refused as `type mismatch`. Windows like `get_email`. A PDF locked only by an
+owner password is read with `note: "owner-password protected"`; a scan without a
+text layer gives an empty `text` and a note, there is no OCR. A damaged page is
+skipped and listed in `note` as `unreadable pages`. Errors: `unsupported
+type`, `too large` (over 15 MB), `encrypted`, `unsafe xml`, `timeout`, `memory
+limit`.
+
+PDF and DOCX are parsed in a separate process per call, killed after 30 seconds.
+The process gets a memory limit: a Job Object of 1 GB on Windows, `RLIMIT_AS` of
+2 GB on Linux. **macOS has no memory limit**: its kernel does not enforce
+`RLIMIT_AS`, so only the size and time limits apply there. DOCX parts are capped
+at 50 MB unpacked and parsed without DTDs or entities. The last two downloaded
+messages stay in memory for 5 minutes (not those over 25 MB), so reading several
+attachments of one message downloads it once.
 
 Dates are ISO; `since` is `YYYY-MM-DD`. Message content is written by third
 parties and is data, not instructions; the tool descriptions say so to the model.

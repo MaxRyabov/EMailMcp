@@ -8,6 +8,7 @@ from keyring.backend import KeyringBackend
 from keyring.errors import PasswordDeleteError
 
 from imap_mcp import accounts, redact, server
+from imap_mcp.attachments import MessageCache
 from imap_mcp.guard import ReadOnlyIMAP4_SSL
 from imap_mcp.pool import ConnectionPool
 
@@ -90,12 +91,16 @@ def config(tmp_path, monkeypatch):
 
 
 class Servers(dict):
-    """Fake IMAP servers by account key, sharing one fake clock; `pool` is server.pool."""
+    """Fake IMAP servers by account key, sharing one fake clock.
+
+    `pool` and `cache` are server.pool and server.cache, both on that clock.
+    """
 
     def __init__(self):
         super().__init__()
         self.clock = FakeClock()
         self.pool = None
+        self.cache = None
 
 
 @pytest.fixture
@@ -119,6 +124,8 @@ def mail(config, monkeypatch):
     monkeypatch.setenv("BETA_PW", "beta-password")
     servers.pool = ConnectionPool(clock=servers.clock, janitor=False)
     monkeypatch.setattr(server, "pool", servers.pool)
+    servers.cache = MessageCache(clock=servers.clock)
+    monkeypatch.setattr(server, "cache", servers.cache)
     yield servers
     servers.pool.close_all()
 

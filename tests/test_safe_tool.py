@@ -146,6 +146,7 @@ TOOL_ARGS = {
     "list_emails": {},
     "search_emails": {"query": "invoice"},
     "get_email": {"id": ids.make("alpha", "INBOX", 7, 1)},
+    "get_attachment_text": {"id": ids.make("alpha", "INBOX", 7, 1), "index": 0},
 }
 
 

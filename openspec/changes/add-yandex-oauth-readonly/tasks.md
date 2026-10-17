@@ -116,24 +116,24 @@
 
 ## 5. Вложения (attachment-text)
 
-- [ ] 5.1 Метаданные `attachments` в `get_email`, `extractable` по сигнатуре и размеру. Тест: PDF и встроенный PNG.
-- [ ] 5.2 `attachments.py`:
+- [x] 5.1 Метаданные `attachments` в `get_email`, `extractable` по сигнатуре и размеру. Тест: PDF и встроенный PNG.
+- [x] 5.2 `attachments.py`:
   - тип по сигнатуре (`%PDF-` в первых 1024 байтах, ZIP с `word/document.xml`, BOM, затем правило нулевых байтов);
   - общие MIME игнорируются;
   - `type mismatch`.
-- [ ] 5.3 `_extract_worker.py` без импорта `server`, `mcp` и IMAP-слоя:
+- [x] 5.3 `_extract_worker.py` без импорта `server`, `mcp` и IMAP-слоя:
   - перенаправление stdout и stderr (и дескрипторов 1, 2) в `devnull`;
   - TXT с BOM, charset, fallback UTF-8 → cp1251;
   - DOCX через `zipfile` + `defusedxml` со счётчиком прочитанных байтов;
   - PDF через `pypdf`: 50 страниц, `decrypt("")`, `owner-password protected` / `encrypted`, `no text layer`.
-- [ ] 5.4 Запуск исполнителя (D12):
+- [x] 5.4 Запуск исполнителя (D12):
   - `spawn`-процесс на вызов, `Pipe` с сигналом «начинай»;
   - Job Object с лимитом 1 ГБ на Windows, `RLIMIT_AS` 2 ГБ на Linux, на macOS без лимита памяти;
   - `join(30)` → `kill()`;
   - лимит 15 МБ до запуска.
-- [ ] 5.5 Кэш двух последних писем, TTL 5 минут, без писем больше 25 МБ.
-- [ ] 5.6 Инструмент `get_attachment_text(id, index, offset, max_chars ≤ 40 000)`. Тест `test_all_tools_registered` проверяет шесть инструментов.
-- [ ] 5.7 Фикстуры и тесты по каждому сценарию спеки:
+- [x] 5.5 Кэш двух последних писем, TTL 5 минут, без писем больше 25 МБ.
+- [x] 5.6 Инструмент `get_attachment_text(id, index, offset, max_chars ≤ 40 000)`. Тест `test_all_tools_registered` проверяет шесть инструментов.
+- [x] 5.7 Фикстуры и тесты по каждому сценарию спеки:
   - PDF с текстом; PDF как `octet-stream`; смещённый `%PDF-`; `image/png` с содержимым PDF;
   - скан без текстового слоя; PDF с паролем владельца (AES); PDF с паролем пользователя;
   - DOCX с таблицей; DOCX с XXE; ZIP-бомба 2 МБ → 2 ГБ;

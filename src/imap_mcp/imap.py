@@ -17,7 +17,7 @@ from contextlib import contextmanager, suppress
 from imap_tools import MailBox, MailMessage
 from imap_tools.errors import UnexpectedCommandStatusError
 
-from . import htmltext, ids
+from . import attachments, htmltext, ids
 from .accounts import Account
 from .auth import CredentialUnavailable, credential_for
 from .guard import ReadOnlyMailBox
@@ -28,6 +28,7 @@ SNIPPET_LENGTH = 200
 SNIPPET_MAX_SIZE = 128 * 1024  # larger messages get no snippet (D10)
 SNIPPET_BUDGET = 3 * 1024 * 1024  # second-pass bytes per account and call
 BODY_MAX_SIZE = 40 * 1024 * 1024  # get_email does not download larger messages
+TOO_LARGE_NOTE = "письмо больше 40 МБ, тело не загружено"
 _UNSELECTABLE = ("\\noselect", "\\nonexistent")
 
 
@@ -204,33 +205,23 @@ def rows(
     return out
 
 
-def _attachments(msg: MailMessage) -> list[dict]:
-    return [
-        {
-            "index": i,
-            "filename": att.filename,
-            "content_type": att.content_type,
-            "size": att.size,
-            "inline": att.content_disposition == "inline" or bool(att.content_id),
-        }
-        for i, att in enumerate(msg.attachments)
-    ]
-
-
-def read_message(box: MailBox, mid: ids.MessageId) -> dict:
-    """One message by id; the body is the whole text, the caller cuts the window."""
+def fetch_message(box: MailBox, mid: ids.MessageId) -> tuple[MailMessage, bool]:
+    """The message by id and whether it was downloaded whole (not over 40 MB)."""
     if examine(box, mid.folder) != mid.uidvalidity:
         raise MailError("список устарел, повторите list_emails/search_emails")
     head = _fetch(box, [mid.uid], headers_only=True).get(mid.uid)
     if head is None:
         raise MailError("письмо не найдено: удалено или перемещено")
-    msg = (
-        head
-        if head.size_rfc822 > BODY_MAX_SIZE
-        else _fetch(box, [mid.uid], headers_only=False).get(mid.uid)
-    )
+    if head.size_rfc822 > BODY_MAX_SIZE:
+        return head, False
+    msg = _fetch(box, [mid.uid], headers_only=False).get(mid.uid)
     if msg is None:
         raise MailError("письмо не найдено: удалено или перемещено")
+    return msg, True
+
+
+def message_fields(msg: MailMessage, mid: ids.MessageId, whole: bool) -> dict:
+    """get_email fields; the body is the whole text, the caller cuts the window."""
     date = message_date(msg)
     out = {
         "account": mid.account,
@@ -244,10 +235,10 @@ def read_message(box: MailBox, mid: ids.MessageId) -> dict:
         "date": date.isoformat() if date else None,
         "unread": "\\Seen" not in msg.flags,
         "message_id": msg.headers.get("message-id", [None])[0],
-        "size": head.size_rfc822,
+        "size": msg.size_rfc822,
     }
-    if msg is head:
-        out.update(body=None, attachments=None, note="письмо больше 40 МБ, тело не загружено")
+    if whole:
+        out.update(body=body_text(msg), attachments=attachments.metadata(msg))
     else:
-        out.update(body=body_text(msg), attachments=_attachments(msg))
+        out.update(body=None, attachments=None, note=TOO_LARGE_NOTE)
     return out
