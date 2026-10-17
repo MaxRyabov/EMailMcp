@@ -129,9 +129,21 @@ def pdf_text(data: bytes) -> dict:
         notes.append(OWNER_PASSWORD)
     total = len(reader.pages)
     read = min(total, PDF_MAX_PAGES)
-    pages = (reader.pages[i].extract_text() or "" for i in range(read))
-    text = "\n\n".join(p.strip() for p in pages if p.strip())
-    if not text:
+    pages, broken, first_error = [], [], None
+    for i in range(read):
+        try:
+            pages.append((reader.pages[i].extract_text() or "").strip())
+        except MemoryError:
+            raise
+        except Exception as e:  # noqa: BLE001 -- one damaged page must not hide the rest
+            broken.append(str(i + 1))
+            first_error = first_error or e
+    if read and len(broken) == read:
+        raise ExtractError(f"parse error: {type(first_error).__name__}: {first_error}"[:ERROR_MAX])
+    text = "\n\n".join(p for p in pages if p)
+    if broken:
+        notes.append(f"unreadable pages: {', '.join(broken)}")
+    elif not text:
         notes.append(NO_TEXT_LAYER)
     return {"text": text, "pages_total": total, "pages_read": read, "note": "; ".join(notes)}
 
@@ -162,6 +174,8 @@ def docx_text(data: bytes) -> dict:
     with zf:
         if "word/document.xml" not in zf.namelist():
             raise ExtractError("parse error: в DOCX нет word/document.xml")
+        if zf.getinfo("word/document.xml").flag_bits & 0x1:  # ZIP encryption
+            raise ExtractError("encrypted: DOCX защищён паролем")
         xml = _read_limited(zf, "word/document.xml", DOCX_XML_MAX)
     try:
         root = SafeET.fromstring(xml, forbid_dtd=True)

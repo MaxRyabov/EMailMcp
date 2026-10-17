@@ -10,6 +10,8 @@ import time
 
 from imap_mcp import _extract_worker
 
+LOW_HARD_LIMIT = 3 * 1024**3 // 2  # below the worker's 2 GB RLIMIT_AS
+
 
 def _sleep(job):
     time.sleep(job.get("seconds", 60))
@@ -79,8 +81,7 @@ def low_hard_limit(conn):
     """Linux: a hard RLIMIT_AS below 2 GB is already in place."""
     import resource
 
-    low = 3 * 1024**3 // 2
-    resource.setrlimit(resource.RLIMIT_AS, (low, low))
+    resource.setrlimit(resource.RLIMIT_AS, (LOW_HARD_LIMIT, LOW_HARD_LIMIT))
     _extract_worker.serve(conn, _address_limit)
 
 

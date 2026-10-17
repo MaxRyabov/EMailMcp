@@ -12,6 +12,7 @@ from docfixtures import document_xml, make_docx, make_pdf, zip_bomb
 from fakemail import make_message
 from imap_tools import MailMessage
 from mcp.server.mcpserver.exceptions import ToolError
+from pypdf import PageObject
 
 from imap_mcp import _extract_worker, attachments, server
 from imap_mcp.attachments import DOCX, PDF, TEXT, MessageCache
@@ -20,9 +21,8 @@ from imap_mcp.pool import MailError
 OCTET = "application/octet-stream"
 
 
-def attachment(name, ctype, data, charset=None):
-    params = [{"charset": charset}] if charset else []
-    raw = make_message(attachments=[(name, ctype, data, False, *params)])
+def attachment(name, ctype, data):
+    raw = make_message(attachments=[(name, ctype, data, False)])
     return MailMessage.from_bytes(raw).attachments[0]
 
 
@@ -169,6 +169,39 @@ def test_user_password_pdf_is_encrypted():
         _extract_worker.pdf_text(make_pdf(["Secret"], user_password="open", owner_password="x"))
 
 
+@pytest.fixture
+def damaged_pages(monkeypatch):
+    """Pages whose text says "broken" fail in extract_text, like a corrupt stream."""
+    real = PageObject.extract_text
+
+    def flaky(self, *args, **kwargs):
+        text = real(self, *args, **kwargs)
+        if "broken" in text:
+            raise ValueError("corrupt content stream")
+        return text
+
+    monkeypatch.setattr(PageObject, "extract_text", flaky)
+
+
+def test_damaged_page_is_skipped_with_a_note(damaged_pages):
+    result = _extract_worker.pdf_text(make_pdf(["one", "broken", "three"]))
+    assert result["text"] == "one\n\nthree"
+    assert result["note"] == "unreadable pages: 2"
+
+
+def test_pdf_with_every_page_damaged_is_a_parse_error(damaged_pages):
+    with pytest.raises(_extract_worker.ExtractError, match="^parse error: ValueError"):
+        _extract_worker.pdf_text(make_pdf(["broken", "broken"]))
+
+
+def test_zip_encrypted_docx_is_encrypted():
+    data = bytearray(make_docx(["secret"]))
+    entry = data.rfind(b"PK\x01\x02")  # the last central record: word/document.xml
+    data[entry + 8] |= 0x1  # general purpose flag: encrypted
+    with pytest.raises(_extract_worker.ExtractError, match="^encrypted"):
+        _extract_worker.docx_text(bytes(data))
+
+
 def test_docx_paragraphs_and_tables_in_document_order():
     data = make_docx(["Договор №5", [["Товар", "Цена"], ["Стол", "500"]], "Подписи"])
     text = _extract_worker.docx_text(data)["text"]
@@ -228,9 +261,12 @@ def test_non_text_codec_as_charset_falls_back(charset):
     assert _extract_worker.decode_text("Привет".encode("cp1251"), charset) == "Привет"
 
 
-@pytest.mark.parametrize("encoding", ["utf-32-le", "utf-32-be"])
-def test_utf32_bom_is_not_taken_for_utf16(encoding):
-    data = "﻿Сумма;500".encode(encoding)
+@pytest.mark.parametrize(
+    ("encoding", "mark"),
+    [("utf-32-le", b"\xff\xfe\x00\x00"), ("utf-32-be", b"\x00\x00\xfe\xff")],
+)
+def test_utf32_bom_is_not_taken_for_utf16(encoding, mark):
+    data = mark + "Сумма;500".encode(encoding)
     assert _extract_worker.decode_text(data) == "Сумма;500"
 
 
@@ -319,7 +355,7 @@ def test_failure_to_set_the_memory_limit_is_an_answer():
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="RLIMIT_AS is set on Linux")
 def test_lower_hard_address_limit_is_kept():
-    assert attachments.run({}, target=workers.low_hard_limit)["text"] == str(3 * 1024**3 // 2)
+    assert attachments.run({}, target=workers.low_hard_limit)["text"] == str(workers.LOW_HARD_LIMIT)
 
 
 def test_worker_output_never_reaches_the_parent_streams(capfd):

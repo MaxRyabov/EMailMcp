@@ -171,7 +171,8 @@ UTF-8, then cp1251). The type is detected from the content, so a PDF sent as
 `application/octet-stream` is read, and an `image/png` that is really a PDF is
 refused as `type mismatch`. Windows like `get_email`. A PDF locked only by an
 owner password is read with `note: "owner-password protected"`; a scan without a
-text layer gives an empty `text` and a note, there is no OCR. Errors: `unsupported
+text layer gives an empty `text` and a note, there is no OCR. A damaged page is
+skipped and listed in `note` as `unreadable pages`. Errors: `unsupported
 type`, `too large` (over 15 MB), `encrypted`, `unsafe xml`, `timeout`, `memory
 limit`.
 
